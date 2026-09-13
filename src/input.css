@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+/* ============================================================ */
+/* فونت وزیر - دو وزن (نرمال و بولد) با یک family واحد            */
+/* تا کلاس‌های font-bold / font-extrabold تیلویند خودکار درست کار کنند */
+/* ============================================================ */
+@font-face {
+  font-family: "vazir";
+  src: url("../assets/fonts/Vazir.woff") format("woff");
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "vazir";
+  src: url("../assets/fonts/Vazir-Bold.woff") format("woff");
+  font-weight: 700;
+  font-display: swap;
+}
+
+/* ============================================================ */
+/* پالت رنگی و توکن‌های پروژه                                     */
+/* همه‌ی اسم‌ها به‌صورت kebab-case (حروف کوچک) تا با کلاس‌های        */
+/* استاندارد تیلویند (مثل text-gray-400) هم‌خوان و بدون ابهام باشند  */
+/* ============================================================ */
+@theme {
+  --color-purple1: #A71111;
+  --color-black-main: #000000;
+  --color-black-primary: #272727;
+  --color-yasi: #FFF4E2;
+  --color-gray-main: #5B5B5B;
+  --color-gray-primary: #AAAAAA;
+
+  /* فونت پیش‌فرض سایت را به وزیر تغییر می‌دهد (به‌جای استفاده از سلکتور *) */
+  --font-sans: "vazir", sans-serif;
+
+  /* عرض حداکثر کانتینر - مقداری واقعی به‌جای مقدار خالی قبلی */
+  --container-max-width: 1440px;
+}
+
+/* ============================================================ */
+/* کلاس‌های عمومی پروژه */
+/* ============================================================ */
+.container {
+  max-width: var(--container-max-width);
+  margin-inline: auto;
+}
+
+/* مخفی کردن اسکرول‌بار در ریل اسلایدرها (در صورت استفاده از overflow-x) */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@supports (view-transition-name: none) {
+  @view-transition {
+    navigation: auto;
+  }
+
+  /* سفارشی‌سازی انیمیشن ورودی و خروجی */
+  ::view-transition-old(root) {
+    animation: fade-out 0.3s ease-in-out forwards;
+  }
+
+  ::view-transition-new(root) {
+    animation: fade-in 0.3s ease-in-out forwards;
+  }
+}
+
+@keyframes fade-out {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(0.98); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: scale(1.02); }
+  to { opacity: 1; transform: scale(1); }
+}

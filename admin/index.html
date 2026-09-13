@@ -1,0 +1,2978 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="view-transition" content="same-origin" />
+    <link rel="stylesheet" href="../src/input.css" />
+    <link rel="stylesheet" href="../src/output.css" />
+    <title>پنل مدیریت</title>
+  </head>
+
+  <body class="bg-gray-50 text-right font-sans antialiased">
+    <!-- کانتینر اصلی صفحه -->
+    <div class="flex min-h-screen w-full">
+      <!-- ۱. دکمه همبرگری (فقط در موبایل و تبلت نشان داده می‌شود) -->
+      <button
+        id="admin-hamburger-btn"
+        class="lg:hidden fixed h-dvh p-2 text-yasi hover:text-gray-main bg-purple1 rounded-bl-2xl rounded-tl-2xl focus:outline-none"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="1.5"
+          stroke="currentColor"
+          class="size-6"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M15.75 19.5 8.25 12l7.5-7.5"
+          />
+        </svg>
+      </button>
+
+      <!-- ۲. لایه تیره پس‌زمینه (Overlay) -->
+      <div
+        id="admin-sidebar-overlay"
+        class="fixed inset-0 bg-black/50 z-40 hidden opacity-0 transition-opacity duration-300 lg:hidden"
+      ></div>
+
+      <!-- ۳. سایدبار (در موبایل و تبلت مخفی و در دسکتاپ ثابت) -->
+      <aside
+        id="admin-sidebar"
+        class="fixed top-0 right-0 z-50 h-full w-64 bg-purple1 text-white rounded-bl-2xl rounded-tl-2xl lg:rounded-none p-6 flex flex-col justify-between shrink-0 min-h-screen transition-transform duration-300 translate-x-full lg:translate-x-0 lg:static"
+      >
+        <div class="space-y-8">
+          <!-- لوگو و دکمه بستن در موبایل -->
+          <div class="flex items-center justify-between pt-2">
+            <h2
+              class="text-3xl font-extrabold tracking-wide text-center w-full lg:w-auto"
+            >
+              لوگو
+            </h2>
+            <!-- دکمه بستن (فقط در موبایل/تبلت) -->
+            <button
+              id="admin-close-sidebar-btn"
+              class="lg:hidden text-white/80 hover:text-white"
+            >
+              <svg
+                class="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+
+          <!-- منوهای ناوبری -->
+          <nav class="space-y-2" id="admin-menu">
+            <a
+              href="#"
+              id="dashboard"
+              class="flex items-center justify-start py-3 px-4 bg-white text-black-primary rounded-xl font-bold transition-all"
+              >داشبورد</a
+            >
+            <a
+              href="#"
+              id="orders"
+              class="flex items-center justify-start py-3 px-4 font-semibold text-white/90 hover:bg-white/10 rounded-xl transition-all"
+              >سفارشات</a
+            >
+            <a
+              href="#"
+              id="products"
+              class="flex items-center justify-start py-3 px-4 font-semibold text-white/90 hover:bg-white/10 rounded-xl transition-all"
+              >محصولات</a
+            >
+            <a
+              href="#"
+              id="reviews"
+              class="flex items-center justify-start py-3 px-4 font-semibold text-white/90 hover:bg-white/10 rounded-xl transition-all"
+              >نظرات مشتری</a
+            >
+            <a
+              href="#"
+              id="accounting"
+              class="flex items-center justify-start py-3 px-4 font-semibold text-white/90 hover:bg-white/10 rounded-xl transition-all"
+              >حسابداری</a
+            >
+            <a
+              href="#"
+              id="settings"
+              class="flex items-center justify-start py-3 px-4 font-semibold text-white/90 hover:bg-white/10 rounded-xl transition-all"
+              >تنظیمات</a
+            >
+            <a
+              href="#"
+              id="exit"
+              class="flex items-center justify-start py-3 px-4 font-semibold text-white/90 hover:bg-white/10 rounded-xl transition-all"
+              >خروج</a
+            >
+          </nav>
+        </div>
+      </aside>
+
+      <!-- بخش سمت چپ -->
+      <div class="flex-1 flex flex-col min-h-screen w-full pr-10 lg:pr-0">
+        <!-- ۲. هدر اصلی (کاملاً خارج از main و مشترک برای تمام صفحات) -->
+        <header
+          class="flex items-center justify-between p-6 lg:px-10 pb-4 border-b border-gray-200 bg-white"
+        >
+          <div>
+            <h1
+              class="text-2xl lg:text-3xl font-bold text-black-primary"
+              id="page-title"
+            >
+              داشبورد
+            </h1>
+            <p class="text-sm text-gray-main mt-1" id="page-breadcrumb">
+              به پنل مدیریت فروشگاه خوش آمدید
+            </p>
+          </div>
+          <!-- اطلاعات ادمین -->
+          <div class="flex items-center gap-3">
+            <div class="text-left hidden sm:block">
+              <p class="font-bold text-black-primary text-sm">مدیر فروشگاه</p>
+              <p class="text-xs text-gray-primary">خوش آمدید</p>
+            </div>
+            <div
+              class="w-10 h-10 rounded-full bg-purple1 flex items-center justify-center text-white shrink-0"
+            >
+              <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24">
+                <path
+                  d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"
+                />
+              </svg>
+            </div>
+          </div>
+        </header>
+
+        <!-- ۳. تگ  (فقط شامل محتوای متغیر بخش‌ها) -->
+        <main class="flex-1 p-6 lg:p-10 space-y-8">
+          <!-- بخش داشبورد -->
+          <section id="dashboard-section" class="admin-section">
+            <!-- ۴ باکس آمار اصلی -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <!-- کارت 1 -->
+              <div
+                class="bg-white border border-gray-100 rounded-2xl p-5 text-center shadow-sm"
+              >
+                <span class="text-sm font-medium text-gray-main block mb-2"
+                  >مشتریان</span
+                >
+                <span class="text-2xl lg:text-3xl font-bold text-purple1 block"
+                  >890</span
+                >
+                <span class="text-xs text-gray-primary mt-2 block"
+                  >کاربر ثبت‌نام شده</span
+                >
+              </div>
+              <!-- کارت 2 -->
+              <div
+                class="bg-white border border-gray-100 rounded-2xl p-5 text-center shadow-sm"
+              >
+                <span class="text-sm font-medium text-gray-main block mb-2"
+                  >تعداد محصولات</span
+                >
+                <span class="text-2xl lg:text-3xl font-bold text-purple1 block"
+                  >4000</span
+                >
+                <span class="text-xs text-gray-primary mt-2 block"
+                  >محصول ثبت شده</span
+                >
+              </div>
+              <!-- کارت 3 -->
+              <div
+                class="bg-white border border-gray-100 rounded-2xl p-5 text-center shadow-sm"
+              >
+                <span class="text-sm font-medium text-gray-main block mb-2"
+                  >مجموع فروش</span
+                >
+                <span class="text-2xl lg:text-3xl font-bold text-purple1 block"
+                  >4.580.000</span
+                >
+                <span class="text-xs text-gray-primary mt-2 block">تومان</span>
+              </div>
+              <!-- کارت 4 -->
+              <div
+                class="bg-white border border-gray-100 rounded-2xl p-5 text-center shadow-sm"
+              >
+                <span class="text-sm font-medium text-gray-main block mb-2"
+                  >سفارش‌ها</span
+                >
+                <span class="text-2xl lg:text-3xl font-bold text-purple1 block"
+                  >245</span
+                >
+                <span class="text-xs text-gray-primary mt-2 block"
+                  >سفارش جدید</span
+                >
+              </div>
+            </div>
+
+            <!-- مدیریت سریع -->
+            <div>
+              <h2 class="text-base font-bold text-black-primary mb-4">
+                مدیریت سریع
+              </h2>
+              <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+                <!-- ۱. افزودن محصول -->
+                <a
+                  href="#add-product-section"
+                  data-target="add-product-section"
+                  class="quick-link-btn flex flex-col items-center justify-center p-4 border border-purple1 rounded-2xl text-purple1 bg-white hover:bg-purple1/5 transition-colors cursor-pointer min-h-[100px]"
+                >
+                  <div
+                    class="w-8 h-8 rounded-full border border-purple1 flex items-center justify-center mb-2"
+                  >
+                    <span class="text-xl font-light">+</span>
+                  </div>
+                  <span class="text-xs font-bold">افزودن محصول</span>
+                </a>
+
+                <!-- ۲. سفارشات -->
+                <a
+                  href="#orders-section"
+                  data-target="orders-section"
+                  class="quick-link-btn flex flex-col items-center justify-center p-4 border border-gray-300 rounded-2xl text-black-primary bg-white hover:border-purple1 transition-colors cursor-pointer min-h-[100px]"
+                >
+                  <svg
+                    class="w-6 h-6 stroke-black-primary fill-none mb-2"
+                    viewBox="0 0 24 24"
+                    stroke-width="1.8"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17"
+                    />
+                  </svg>
+                  <span class="text-xs font-medium">سفارشات</span>
+                </a>
+
+                <!-- ۳. حسابداری -->
+                <a
+                  href="#accounting-section"
+                  data-target="accounting-section"
+                  class="quick-link-btn flex flex-col items-center justify-center p-4 border border-gray-300 rounded-2xl text-black-primary bg-white hover:border-purple1 transition-colors cursor-pointer min-h-[100px]"
+                >
+                  <svg
+                    class="w-6 h-6 stroke-black-primary fill-none mb-2"
+                    viewBox="0 0 24 24"
+                    stroke-width="1.8"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+                    />
+                  </svg>
+                  <span class="text-xs font-medium">حسابداری</span>
+                </a>
+
+                <!-- ۴. نظرات مشتریان -->
+                <a
+                  href="#reviews-section"
+                  data-target="reviews-section"
+                  class="quick-link-btn flex flex-col items-center justify-center p-4 border border-gray-300 rounded-2xl text-black-primary bg-white hover:border-purple1 transition-colors cursor-pointer min-h-[100px]"
+                >
+                  <svg
+                    class="w-6 h-6 stroke-black-primary fill-none mb-2"
+                    viewBox="0 0 24 24"
+                    stroke-width="1.8"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                    />
+                  </svg>
+                  <span class="text-xs font-medium">نظرات مشتریان</span>
+                </a>
+
+                <!-- ۵. تنظیمات -->
+                <a
+                  href="#settings-section"
+                  data-target="settings-section"
+                  class="quick-link-btn flex flex-col items-center justify-center p-4 border border-gray-300 rounded-2xl text-black-primary bg-white hover:border-purple1 transition-colors cursor-pointer min-h-[100px]"
+                >
+                  <svg
+                    class="w-6 h-6 stroke-black-primary fill-none mb-2"
+                    viewBox="0 0 24 24"
+                    stroke-width="1.8"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                    />
+                  </svg>
+                  <span class="text-xs font-medium">تنظیمات</span>
+                </a>
+              </div>
+            </div>
+
+            <!-- اطلاعات فروشگاه + آخرین سفارشات -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-4">
+              <!-- اطلاعات فروشگاه -->
+              <div class="space-y-4">
+                <h2 class="text-base font-bold text-black-primary text-right">
+                  اطلاعات فروشگاه
+                </h2>
+                <div
+                  class="bg-white border border-gray-300 rounded-2xl p-4 flex items-center justify-start gap-x-6"
+                >
+                  <svg
+                    class="w-6 h-6 stroke-purple1 fill-none"
+                    viewBox="0 0 24 24"
+                    stroke-width="1.8"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
+                    />
+                  </svg>
+                  <div>
+                    <span
+                      class="text-xs lg:text-xl font-bold block text-black-primary"
+                      >شماره تماس</span
+                    >
+                    <span class="text-xs lg:text-base text-gray-main block mt-1"
+                      >09132562145</span
+                    >
+                  </div>
+                </div>
+                <div
+                  class="bg-white border border-gray-300 rounded-2xl p-4 flex items-center justify-start gap-x-6"
+                >
+                  <svg
+                    class="w-6 h-6 stroke-purple1 fill-none"
+                    viewBox="0 0 24 24"
+                    stroke-width="1.8"
+                  >
+                    <rect
+                      x="2"
+                      y="2"
+                      width="20"
+                      height="20"
+                      rx="5"
+                      ry="5"
+                    ></rect>
+                    <path
+                      d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"
+                    ></path>
+                    <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+                  </svg>
+                  <div>
+                    <span
+                      class="text-xs lg:text-xl font-bold block text-black-primary"
+                      >اینستاگرام</span
+                    >
+                    <span class="text-xs lg:text-base text-gray-main block mt-1"
+                      >@example</span
+                    >
+                  </div>
+                </div>
+                <div
+                  class="bg-white border border-gray-300 rounded-2xl p-4 flex items-center justify-start gap-x-6"
+                >
+                  <svg
+                    class="w-8.5 h-8.5 stroke-purple1 fill-none"
+                    viewBox="0 0 24 24"
+                    stroke-width="1.8"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                    />
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
+                  </svg>
+                  <div>
+                    <span
+                      class="text-xs lg:text-xl font-bold block text-black-primary"
+                      >آدرس</span
+                    >
+                    <span class="text-xs lg:text-base text-gray-main block mt-1"
+                      >مثال</span
+                    >
+                  </div>
+                </div>
+              </div>
+
+              <!-- جدول آخرین سفارشات -->
+              <div class="lg:col-span-2 space-y-3">
+                <h2 class="text-lg font-bold text-black-primary text-right">
+                  آخرین سفارشات
+                </h2>
+                <div
+                  class="bg-white border border-gray-300 rounded-2xl flex flex-col justify-between overflow-hidden shadow-sm"
+                >
+                  <div class="overflow-x-auto">
+                    <table class="w-full text-center border-collapse">
+                      <thead>
+                        <tr
+                          class="bg-purple1 text-white text-xs sm:text-sm font-bold"
+                        >
+                          <th class="py-3.5 px-3">تاریخ</th>
+                          <th class="py-3.5 px-3">وضعیت</th>
+                          <th class="py-3.5 px-3">مبلغ</th>
+                          <th class="py-3.5 px-3">مشتری</th>
+                          <th class="py-3.5 px-3">کد سفارش</th>
+                        </tr>
+                      </thead>
+                      <tbody class="text-xs sm:text-sm text-black-primary">
+                        <tr class="border-b border-purple1/20">
+                          <td class="py-4 px-3 font-medium">#125</td>
+                          <td class="py-4 px-3">سارا محمدی</td>
+                          <td class="py-4 px-3">254.000 تومان</td>
+                          <td class="py-4 px-3 text-emerald-500 font-medium">
+                            پرداخته شده
+                          </td>
+                          <td class="py-4 px-3">1405/02/05</td>
+                        </tr>
+                        <tr class="border-b border-purple1/20">
+                          <td class="py-4 px-3 font-medium">#125</td>
+                          <td class="py-4 px-3">سارا محمدی</td>
+                          <td class="py-4 px-3">254.000 تومان</td>
+                          <td class="py-4 px-3 text-emerald-500 font-medium">
+                            پرداخته شده
+                          </td>
+                          <td class="py-4 px-3">1405/02/05</td>
+                        </tr>
+                        <tr class="border-b border-purple1/20">
+                          <td class="py-4 px-3 font-medium">#125</td>
+                          <td class="py-4 px-3">سارا محمدی</td>
+                          <td class="py-4 px-3">254.000 تومان</td>
+                          <td class="py-4 px-3 text-emerald-500 font-medium">
+                            پرداخته شده
+                          </td>
+                          <td class="py-4 px-3">1405/02/05</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div class="p-4 text-left border-t border-purple1/20">
+                    <a
+                      href="#"
+                      class="text-purple1 text-base font-bold hover:underline inline-block"
+                      >مشاهده همه</a
+                    >
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- بخش سفارشات -->
+          <section id="orders-section" class="admin-section hidden">
+            <div class="w-full space-y-6">
+              <!-- فیلترها -->
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="relative">
+                  <input
+                    type="text"
+                    placeholder="جست و جو بر اساس شماره سفارش، نام یا تلفن..."
+                    class="w-full pl-10 pr-4 py-5 border border-black-main rounded-2xl text-xs sm:text-sm text-black-primary placeholder:text-purple1/50 outline-none focus:border-purple1 transition-colors"
+                  />
+                  <i
+                    class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-black-main text-base"
+                  ></i>
+                </div>
+                <div
+                  class="relative border border-black-main rounded-2xl px-4 py-2 bg-white flex flex-col justify-center"
+                >
+                  <span class="text-[10px] text-purple1 font-bold"
+                    >وضعیت سفارش</span
+                  >
+                  <div class="flex items-center justify-between mt-0.5">
+                    <span
+                      class="text-xs sm:text-sm text-black-primary font-bold"
+                      >همه</span
+                    >
+                    <i
+                      class="fa-solid fa-chevron-down text-black-main text-sm"
+                    ></i>
+                  </div>
+                </div>
+                <div
+                  class="relative border border-black-main rounded-2xl px-4 py-2 bg-white flex items-center justify-between"
+                >
+                  <div class="flex flex-col">
+                    <span class="text-[10px] text-purple1 font-bold"
+                      >تاریخ ثبت</span
+                    >
+                    <span
+                      class="text-xs sm:text-sm text-gray-main font-bold mt-0.5"
+                      >مثال</span
+                    >
+                  </div>
+                  <i
+                    class="fa-regular fa-calendar-days text-purple1 text-xl"
+                  ></i>
+                </div>
+              </div>
+
+              <!-- جدول سفارشات -->
+              <div
+                class="bg-white border border-gray-300 rounded-2xl flex flex-col justify-between overflow-hidden shadow-sm"
+              >
+                <div class="overflow-x-auto">
+                  <table class="w-full text-center border-collapse">
+                    <thead>
+                      <tr
+                        class="bg-purple1 text-white text-xs sm:text-sm font-bold"
+                      >
+                        <th class="py-3.5 px-3">کد سفارش</th>
+                        <th class="py-3.5 px-3">مشتری</th>
+                        <th class="py-3.5 px-3">مبلغ</th>
+                        <th class="py-3.5 px-3">تاریخ ثبت</th>
+                        <th class="py-3.5 px-3">وضعیت پرداخت</th>
+                        <th class="py-3.5 px-3">عملیات</th>
+                      </tr>
+                    </thead>
+                    <tbody
+                      id="orders-table-body"
+                      class="text-xs sm:text-sm text-black-primary"
+                    >
+                      <!-- رندر پویا توسط جاوااسکریپت -->
+                    </tbody>
+                  </table>
+                </div>
+                <div class="p-4 text-left border-t border-purple1/20">
+                  <a
+                    href="#"
+                    class="text-purple1 text-base font-bold hover:underline inline-block"
+                    >مشاهده همه</a
+                  >
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- بخش سفارشات > سکشن فاکتور / جزئیات سفارش -->
+          <section id="order-details-section" class="admin-section hidden">
+            <div class="flex justify-between items-center">
+              <div>
+                <p class="text-xs text-gray-500 mt-1">
+                  سفارشات &gt; جزئیات سفارش
+                </p>
+              </div>
+              <button
+                id="back-to-orders"
+                class="bg-purple1 text-white px-4 py-2 rounded-xl text-xs font-bold hover:brightness-95 transition-all"
+              >
+                بازگشت به لیست
+              </button>
+            </div>
+
+            <div
+              class="bg-white border border-gray-300 rounded-3xl p-6 sm:p-8 shadow-sm space-y-8"
+            >
+              <!-- هدر فاکتور -->
+              <div class="flex justify-between items-center border-b pb-4">
+                <span
+                  class="text-emerald-500 font-bold text-sm sm:text-base"
+                  id="detail-status"
+                  >پرداخت شده</span
+                >
+                <h3 class="text-base sm:text-lg font-bold text-black-primary">
+                  شماره سفارش: <span id="detail-order-id">#126</span>
+                </h3>
+              </div>
+
+              <!-- اطلاعات سه ستونه -->
+              <div
+                class="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs sm:text-sm text-black-primary"
+              >
+                <div class="space-y-3">
+                  <h4 class="font-bold text-black-main text-sm">
+                    اطلاعات مشتری
+                  </h4>
+                  <p class="flex items-center gap-2">
+                    <svg
+                      width="24"
+                      height="24"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M20 21V19C20 17.9391 19.5786 16.9217 18.8284 16.1716C18.0783 15.4214 17.0609 15 16 15H8C6.93913 15 5.92172 15.4214 5.17157 16.1716C4.42143 16.9217 4 17.9391 4 19V21"
+                        stroke="#A71111"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                      <path
+                        d="M12 11C14.2091 11 16 9.20914 16 7C16 4.79086 14.2091 3 12 3C9.79086 3 8 4.79086 8 7C8 9.20914 9.79086 11 12 11Z"
+                        stroke="#A71111"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
+                    <span id="detail-customer-name">سارا محمدی</span>
+                  </p>
+                  <p class="flex items-center gap-2">
+                    <svg
+                      width="24"
+                      height="24"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M21.9999 16.92V19.92C22.0011 20.1985 21.944 20.4741 21.8324 20.7293C21.7209 20.9845 21.5572 21.2136 21.352 21.4018C21.1468 21.5901 20.9045 21.7335 20.6407 21.8227C20.3769 21.9119 20.0973 21.945 19.8199 21.92C16.7428 21.5856 13.7869 20.5341 11.1899 18.85C8.77376 17.3146 6.72527 15.2661 5.18993 12.85C3.49991 10.2412 2.44818 7.27097 2.11993 4.17997C2.09494 3.90344 2.12781 3.62474 2.21643 3.3616C2.30506 3.09846 2.4475 2.85666 2.6347 2.6516C2.82189 2.44653 3.04974 2.28268 3.30372 2.1705C3.55771 2.05831 3.83227 2.00024 4.10993 1.99997H7.10993C7.59524 1.9952 8.06572 2.16705 8.43369 2.48351C8.80166 2.79996 9.04201 3.23942 9.10993 3.71997C9.23656 4.68004 9.47138 5.6227 9.80993 6.52997C9.94448 6.8879 9.9736 7.27689 9.89384 7.65086C9.81408 8.02482 9.6288 8.36809 9.35993 8.63998L8.08993 9.90997C9.51349 12.4135 11.5864 14.4864 14.0899 15.91L15.3599 14.64C15.6318 14.3711 15.9751 14.1858 16.3491 14.1061C16.723 14.0263 17.112 14.0554 17.4699 14.19C18.3772 14.5285 19.3199 14.7634 20.2799 14.89C20.7657 14.9585 21.2093 15.2032 21.5265 15.5775C21.8436 15.9518 22.0121 16.4296 21.9999 16.92Z"
+                        stroke="#A71111"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
+                    <span id="detail-customer-phone">09124587625</span>
+                  </p>
+                </div>
+
+                <div class="space-y-3">
+                  <h4 class="font-bold text-black-main text-sm">
+                    اطلاعات ارسال
+                  </h4>
+                  <p class="flex items-center gap-2">
+                    <svg
+                      width="24"
+                      height="24"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M21 10C21 17 12 23 12 23C12 23 3 17 3 10C3 7.61305 3.94821 5.32387 5.63604 3.63604C7.32387 1.94821 9.61305 1 12 1C14.3869 1 16.6761 1.94821 18.364 3.63604C20.0518 5.32387 21 7.61305 21 10Z"
+                        stroke="#A71111"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                      <path
+                        d="M12 13C13.6569 13 15 11.6569 15 10C15 8.34315 13.6569 7 12 7C10.3431 7 9 8.34315 9 10C9 11.6569 10.3431 13 12 13Z"
+                        stroke="#A71111"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
+
+                    <span id="detail-address">مثال</span>
+                  </p>
+                </div>
+
+                <div class="space-y-3">
+                  <h4 class="font-bold text-black-main text-sm">
+                    اطلاعات سفارش
+                  </h4>
+                  <p>
+                    <span class="text-gray-500">تاریخ ثبت:</span>
+                    <span id="detail-date">1405/05/13 - pm14:00</span>
+                  </p>
+                  <p>
+                    <span class="text-gray-500">روش ارسال:</span>
+                    <span id="detail-shipping-method">پست پیشتاز</span>
+                  </p>
+                  <p>
+                    <span class="text-gray-500">وضعیت سفارش:</span>
+                    <span class="text-emerald-500" id="detail-shipping-status"
+                      >ارسال شده</span
+                    >
+                  </p>
+                  <p>
+                    <span class="text-gray-500">تاریخ ارسال:</span>
+                    <span id="detail-shipping-date">1405/05/13</span>
+                  </p>
+                </div>
+              </div>
+
+              <!-- جدول اقلام -->
+              <div class="border border-gray-300 rounded-2xl overflow-hidden">
+                <table class="w-full text-center text-xs sm:text-sm">
+                  <thead>
+                    <tr class="bg-purple1 text-white font-bold">
+                      <th class="py-3 px-4 text-right">محصول</th>
+                      <th class="py-3 px-4">قیمت</th>
+                      <th class="py-3 px-4">تعداد</th>
+                      <th class="py-3 px-4">جمع کل</th>
+                    </tr>
+                  </thead>
+                  <tbody
+                    id="detail-items-body"
+                    class="divide-y divide-gray-200"
+                  >
+                    <!-- اقلام توسط JS اضافه می‌شوند -->
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- باکس جمع کل -->
+              <div class="flex justify-end">
+                <div
+                  class="w-full sm:w-72 border border-gray-300 rounded-2xl p-4 space-y-3 text-xs sm:text-sm"
+                >
+                  <div class="flex justify-between text-gray-600">
+                    <span>جمع جز</span>
+                    <span id="detail-subtotal">2,650,000 تومان</span>
+                  </div>
+                  <div class="flex justify-between text-gray-600">
+                    <span>هزینه ارسال</span>
+                    <span id="detail-shipping-cost">30,000 تومان</span>
+                  </div>
+                  <hr class="border-purple1/30" />
+                  <div
+                    class="flex justify-between font-bold text-purple1 text-sm sm:text-base"
+                  >
+                    <span>مبلغ نهایی</span>
+                    <span id="detail-total">4,500,000 تومان</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- محصولات -->
+          <section id="products-section" class="admin-section hidden">
+            <div
+              class="flex flex-col sm:flex-row justify-between items-center gap-4 mb-3"
+            >
+              <div
+                class="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto"
+              >
+                <div class="relative w-full sm:w-64">
+                  <input
+                    type="text"
+                    id="search-input"
+                    placeholder="جست و جوی محصول...."
+                    class="w-full pl-10 pr-4 py-2.5 border border-black-primary rounded-2xl text-xs text-black-primary placeholder:text-gray-primary outline-none focus:border-purple1 transition-colors"
+                  />
+                  <i
+                    class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-main text-sm"
+                  ></i>
+                </div>
+                <div
+                  class="relative w-full sm:w-48 border border-black-primary rounded-2xl px-4 py-2.5 bg-white flex items-center justify-between cursor-pointer"
+                >
+                  <span class="text-xs text-purple1 font-bold"
+                    >انتخاب دسته‌بندی</span
+                  >
+                  <i
+                    class="fa-solid fa-chevron-down text-xs text-black-primary"
+                  ></i>
+                </div>
+              </div>
+
+              <button
+                id="btn-show-add-form"
+                type="button"
+                class="w-full sm:w-auto text-purple1 font-bold text-sm sm:text-base hover:opacity-80 transition-opacity flex items-center justify-center gap-1 cursor-pointer"
+              >
+                + افزودن محصول جدید
+              </button>
+            </div>
+
+            <!-- کانتینر جدول با اسکرول افقی -->
+            <div
+              class="bg-white border border-gray-primary/40 rounded-[24px] overflow-hidden shadow-sm"
+            >
+              <div class="overflow-x-auto max-w-full">
+                <table
+                  class="w-full text-center border-collapse min-w-[800px] whitespace-nowrap"
+                >
+                  <thead>
+                    <tr
+                      class="bg-purple1 text-white text-xs sm:text-sm font-bold h-12"
+                    >
+                      <th class="py-3 px-4">تصویر</th>
+                      <th class="py-3 px-4 text-right pr-6">نام محصول</th>
+                      <th class="py-3 px-4">قیمت</th>
+                      <th class="py-3 px-4">موجودی</th>
+                      <th class="py-3 px-4">کالکشن</th>
+                      <th class="py-3 px-4">عملیات</th>
+                    </tr>
+                  </thead>
+                  <tbody
+                    id="products-table-body"
+                    class="text-xs sm:text-sm text-black-primary divide-y divide-purple1/20"
+                  ></tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- صفحه بندی (Pagination) -->
+            <div
+              class="flex flex-col sm:flex-row justify-center items-center gap-4 pt-4"
+            >
+              <div class="flex items-center gap-2">
+                <button
+                  class="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-yasi text-purple1 font-bold text-xs sm:text-sm border border-purple1/20 hover:bg-purple1 hover:text-white transition-all cursor-pointer"
+                >
+                  1
+                </button>
+                <button
+                  class="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-yasi text-purple1 font-bold text-xs sm:text-sm border border-purple1/20 hover:bg-purple1 hover:text-white transition-all cursor-pointer"
+                >
+                  2
+                </button>
+                <button
+                  class="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-yasi text-purple1 font-bold text-xs sm:text-sm border border-purple1/20 hover:bg-purple1 hover:text-white transition-all cursor-pointer"
+                >
+                  3
+                </button>
+                <button
+                  class="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-yasi text-purple1 font-bold text-xs sm:text-sm border border-purple1/20 hover:bg-purple1 hover:text-white transition-all cursor-pointer"
+                >
+                  4
+                </button>
+                <button
+                  class="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-yasi text-purple1 font-bold text-xs sm:text-sm border border-purple1/20 hover:bg-purple1 hover:text-white transition-all cursor-pointer"
+                >
+                  5
+                </button>
+                <span class="text-gray-primary font-bold px-1">...</span>
+                <button
+                  class="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-yasi text-purple1 font-bold text-xs sm:text-sm border border-purple1/20 hover:bg-purple1 hover:text-white transition-all cursor-pointer"
+                >
+                  90
+                </button>
+              </div>
+            </div>
+
+            <span
+              id="products-count"
+              class="block text-left text-xs text-gray-main mt-2"
+            >
+              نمایش 0 از 0 محصول
+            </span>
+          </section>
+
+          <!-- سکشن افزودن محصول (هم برای افزودن و هم برای ویرایش) -->
+          <section id="add-product-section" class="admin-section hidden">
+            <form id="add-product-form">
+              <div
+                class="bg-white border border-gray-primary/40 rounded-[28px] p-6 sm:p-8 shadow-sm mb-6"
+              >
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                  <div class="lg:col-span-8 space-y-6">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div class="space-y-2">
+                        <label
+                          class="block text-sm font-bold text-black-primary text-right"
+                          >نام محصول <span class="text-purple1">*</span></label
+                        >
+                        <input
+                          id="input-name"
+                          type="text"
+                          required
+                          placeholder="نام محصول را وارد کنید...."
+                          class="w-full border border-black-primary rounded-2xl px-4 py-3 text-xs sm:text-sm text-black-primary placeholder:text-purple1/70 outline-none focus:border-purple1 transition-colors text-right"
+                        />
+                      </div>
+                      <div class="space-y-2">
+                        <label
+                          class="block text-sm font-bold text-black-primary text-right"
+                          >دسته بندی <span class="text-purple1">*</span></label
+                        >
+                        <div class="relative">
+                          <select
+                            id="input-category"
+                            required
+                            class="w-full border border-black-primary rounded-2xl px-4 py-3 text-xs sm:text-sm text-purple1 appearance-none outline-none focus:border-purple1 cursor-pointer bg-white text-right"
+                          >
+                            <option value="" disabled selected>
+                              انتخاب کنید
+                            </option>
+                            <option value="کالکشن مردانه">کالکشن مردانه</option>
+                            <option value="کالکشن زنانه">کالکشن زنانه</option>
+                          </select>
+                          <i
+                            class="fa-solid fa-chevron-down absolute left-4 top-1/2 -translate-y-1/2 text-black-primary pointer-events-none text-xs"
+                          ></i>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div class="space-y-2">
+                        <label
+                          class="block text-sm font-bold text-black-primary text-right"
+                          >کد محصول</label
+                        >
+                        <input
+                          id="input-code"
+                          type="text"
+                          placeholder="مثال"
+                          class="w-full border border-black-primary rounded-2xl px-4 py-3 text-xs sm:text-sm text-black-primary placeholder:text-purple1/70 outline-none focus:border-purple1 transition-colors text-right"
+                        />
+                      </div>
+                      <div class="space-y-2">
+                        <label
+                          class="block text-sm font-bold text-black-primary text-right"
+                          >برند (اختیاری)</label
+                        >
+                        <input
+                          id="input-brand"
+                          type="text"
+                          placeholder="مثال"
+                          class="w-full border border-black-primary rounded-2xl px-4 py-3 text-xs sm:text-sm text-black-primary placeholder:text-purple1/70 outline-none focus:border-purple1 transition-colors text-right"
+                        />
+                      </div>
+                    </div>
+
+                    <div class="space-y-2">
+                      <label
+                        class="block text-sm font-bold text-black-primary text-right"
+                        >توضیحات محصول</label
+                      >
+                      <textarea
+                        id="input-description"
+                        rows="4"
+                        placeholder="توضیحات محصول را وارد کنید"
+                        class="w-full border border-black-primary rounded-2xl p-4 text-xs sm:text-sm text-black-primary placeholder:text-purple1/70 outline-none focus:border-purple1 transition-colors resize-none text-right"
+                      ></textarea>
+                    </div>
+                  </div>
+
+                  <div class="lg:col-span-4 space-y-3">
+                    <h3
+                      class="text-sm font-bold text-black-primary text-center"
+                    >
+                      تصاویر محصول
+                    </h3>
+                    <div
+                      class="border border-black-primary rounded-[24px] p-6 flex flex-col items-center justify-center min-h-[260px] bg-white"
+                    >
+                      <label
+                        class="w-full border-2 border-dashed border-purple1/60 rounded-2xl p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-purple1/5 transition-colors group"
+                      >
+                        <i
+                          class="fa-solid fa-download text-purple1 text-2xl mb-3 group-hover:scale-110 transition-transform"
+                        ></i>
+                        <span class="text-xs font-bold text-purple1"
+                          >برای اپلود عکس کلیک کنید</span
+                        >
+                        <input
+                          id="input-image"
+                          type="file"
+                          class="hidden"
+                          accept="image/*"
+                        />
+                      </label>
+                      <span class="text-[11px] text-gray-main font-medium mt-3"
+                        >حداکثر حجم 6 مگابایت</span
+                      >
+                      <span
+                        id="image-name-preview"
+                        class="text-xs text-emerald-600 font-bold mt-1"
+                      ></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+                <div
+                  class="lg:col-span-7 bg-white border border-gray-primary/40 rounded-[28px] p-6 sm:p-8 shadow-sm flex flex-col justify-between space-y-6"
+                >
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="space-y-2">
+                      <label
+                        class="block text-sm font-bold text-black-primary text-right"
+                        >قیمت اصلی (تومان)
+                        <span class="text-purple1">*</span></label
+                      >
+                      <input
+                        id="input-price"
+                        type="text"
+                        required
+                        placeholder="مثال: 950.000"
+                        class="w-full border border-black-primary rounded-2xl px-4 py-2.5 text-xs sm:text-sm text-black-primary placeholder:text-purple1/70 outline-none focus:border-purple1 transition-colors text-right"
+                      />
+                    </div>
+                    <div class="space-y-2">
+                      <label
+                        class="block text-sm font-bold text-black-primary text-right"
+                        >قیمت با تخفیف (تومان)</label
+                      >
+                      <input
+                        id="input-discount-price"
+                        type="text"
+                        placeholder="مثال"
+                        class="w-full border border-black-primary rounded-2xl px-4 py-2.5 text-xs sm:text-sm text-black-primary placeholder:text-purple1/70 outline-none focus:border-purple1 transition-colors text-right"
+                      />
+                    </div>
+                  </div>
+
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="space-y-2">
+                      <label
+                        class="block text-sm font-bold text-black-primary text-right"
+                        >رنگ بندی</label
+                      >
+                      <div class="relative">
+                        <select
+                          id="input-colors"
+                          class="w-full border border-black-primary rounded-2xl px-4 py-2.5 text-xs sm:text-sm text-purple1 appearance-none outline-none focus:border-purple1 cursor-pointer bg-white text-right"
+                        >
+                          <option value="" disabled selected>
+                            انتخاب کنید
+                          </option>
+                          <option value="مشکی">مشکی</option>
+                          <option value="سفید">سفید</option>
+                        </select>
+                        <i
+                          class="fa-solid fa-chevron-down absolute left-4 top-1/2 -translate-y-1/2 text-black-primary pointer-events-none text-xs"
+                        ></i>
+                      </div>
+                    </div>
+                    <div class="space-y-2">
+                      <label
+                        class="block text-sm font-bold text-black-primary text-right"
+                        >سایزبندی</label
+                      >
+                      <div class="relative">
+                        <select
+                          id="input-sizes"
+                          class="w-full border border-black-primary rounded-2xl px-4 py-2.5 text-xs sm:text-sm text-purple1 appearance-none outline-none focus:border-purple1 cursor-pointer bg-white text-right"
+                        >
+                          <option value="" disabled selected>
+                            انتخاب کنید
+                          </option>
+                          <option value="S">S</option>
+                          <option value="M">M</option>
+                          <option value="L">L</option>
+                          <option value="XL">XL</option>
+                        </select>
+                        <i
+                          class="fa-solid fa-chevron-down absolute left-4 top-1/2 -translate-y-1/2 text-black-primary pointer-events-none text-xs"
+                        ></i>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    class="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2"
+                  >
+                    <label
+                      class="inline-flex items-center gap-3 cursor-pointer"
+                    >
+                      <span
+                        id="stock-text"
+                        class="text-sm font-bold text-emerald-500"
+                        >موجود است</span
+                      >
+                      <input
+                        id="input-status"
+                        type="checkbox"
+                        checked
+                        class="sr-only peer"
+                      />
+                      <div
+                        class="relative w-12 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"
+                      ></div>
+                    </label>
+
+                    <div class="flex items-center gap-2 w-full sm:w-auto">
+                      <button
+                        id="btn-cancel-add"
+                        type="button"
+                        class="w-1/2 sm:w-28 border border-gray-primary text-black-primary py-3 rounded-2xl font-bold text-sm hover:bg-gray-100 transition-all cursor-pointer"
+                      >
+                        انصراف
+                      </button>
+                      <button
+                        id="btn-submit-product"
+                        type="submit"
+                        class="w-1/2 sm:w-48 bg-yasi text-black-primary border border-gray-primary/40 py-3 rounded-2xl font-bold text-sm hover:brightness-95 transition-all shadow-md active:scale-95 cursor-pointer"
+                      >
+                        افزودن محصول
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  class="lg:col-span-5 bg-white border border-gray-primary/40 rounded-[28px] p-6 sm:p-8 shadow-sm flex flex-col justify-around space-y-8"
+                >
+                  <div class="space-y-4">
+                    <h4 class="text-sm font-bold text-black-primary text-right">
+                      نمایش امتیاز
+                    </h4>
+                    <div class="flex items-center gap-8 justify-end">
+                      <label
+                        class="flex items-center gap-2 cursor-pointer text-xs sm:text-sm font-bold text-black-primary"
+                      >
+                        <span>خیر</span>
+                        <input
+                          type="radio"
+                          id="rating-no"
+                          name="show_score"
+                          value="no"
+                          class="w-4 h-4 accent-purple1 cursor-pointer"
+                        />
+                      </label>
+                      <label
+                        class="flex items-center gap-2 cursor-pointer text-xs sm:text-sm font-bold text-black-primary"
+                      >
+                        <span>بله</span>
+                        <input
+                          type="radio"
+                          id="rating-yes"
+                          name="show_score"
+                          value="yes"
+                          checked
+                          class="w-4 h-4 accent-purple1 cursor-pointer"
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  <div class="space-y-4">
+                    <h4 class="text-sm font-bold text-black-primary text-right">
+                      وضعیت نمایش
+                    </h4>
+                    <div class="flex items-center gap-6 justify-end flex-wrap">
+                      <label
+                        class="flex items-center gap-2 cursor-pointer text-xs sm:text-sm font-bold text-black-primary"
+                      >
+                        <span>عدم نمایش</span>
+                        <input
+                          type="radio"
+                          id="hide-in-store"
+                          name="display_status"
+                          value="hide"
+                          class="w-4 h-4 accent-purple1 cursor-pointer"
+                        />
+                      </label>
+                      <label
+                        class="flex items-center gap-2 cursor-pointer text-xs sm:text-sm font-bold text-black-primary"
+                      >
+                        <span>نمایش در فروشگاه</span>
+                        <input
+                          type="radio"
+                          id="show-in-store"
+                          name="display_status"
+                          value="show"
+                          checked
+                          class="w-4 h-4 accent-purple1 cursor-pointer"
+                        />
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </form>
+          </section>
+
+          <!-- بخش مدیریت نظرات مشتریان -->
+          <section class="admin-section hidden" id="reviews-section">
+            <div
+              class="bg-white border border-gray-300 rounded-[28px] overflow-hidden w-full mx-auto p-2 sm:p-4 shadow-sm"
+            >
+              <!-- کانتینر اسکرول افقی -->
+              <div class="overflow-x-auto max-w-full">
+                <div class="min-w-[850px] whitespace-nowrap">
+                  <!-- هدر جدول -->
+                  <div
+                    class="bg-purple1 text-white grid grid-cols-12 gap-2 text-center py-4 px-4 font-bold text-sm sm:text-base rounded-t-[24px] items-center"
+                  >
+                    <div class="col-span-2 text-right pr-2">نظر</div>
+                    <div class="col-span-3 text-right pr-2">محصول</div>
+                    <div class="col-span-2">مشتری</div>
+                    <div class="col-span-2">تاریخ</div>
+                    <div class="col-span-3">عملیات</div>
+                  </div>
+
+                  <!-- بدنه جدول (رندر توسط JS) -->
+                  <div id="table-rows" class="divide-y divide-rose-200/60">
+                    <!-- آیتم‌ها از طریق اسکریپت جاوااسکریپت جایگذاری می‌شوند -->
+                  </div>
+                </div>
+              </div>
+
+              <!-- فوتر جدول -->
+              <div class="p-5 text-right bg-white border-t border-gray-100">
+                <a
+                  href="#"
+                  class="text-purple1 font-bold hover:underline text-sm sm:text-base"
+                >
+                  مشاهده همه
+                </a>
+              </div>
+            </div>
+          </section>
+          <!-- بخش حسابداری -->
+          <section
+            class="space-y-6 admin-section hidden"
+            id="accounting-section"
+          >
+            <!-- ۱. نمای اصلی حسابداری (کارت‌ها و تراکنش‌ها) -->
+            <div id="accounting-main-view" class="w-full mx-auto space-y-8">
+              <!-- کارت‌های خلاصه وضعیت مالی -->
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- کل درآمد -->
+                <div
+                  class="bg-white rounded-2xl p-6 border border-gray-100 shadow-lg shadow-gray-200/50 flex flex-col justify-between h-44 transition-transform hover:-translate-y-1"
+                >
+                  <div class="flex justify-between items-start">
+                    <h2 class="text-gray-700 font-bold text-xl sm:text-2xl">
+                      کل درآمد
+                    </h2>
+                  </div>
+                  <div
+                    class="flex items-center justify-end gap-2 text-emerald-500 font-extrabold text-2xl sm:text-3xl dir-ltr"
+                  >
+                    <i class="fa-solid fa-arrow-up text-xl"></i>
+                    <span>25.200.000</span>
+                    <span class="text-lg font-normal">تومان</span>
+                  </div>
+                  <button
+                    onclick="showTotalIncomeDetails()"
+                    class="text-right text-gray-500 hover:text-purple1 text-sm font-medium transition-colors cursor-pointer"
+                  >
+                    مشاهده
+                  </button>
+                </div>
+
+                <!-- کل هزینه ها -->
+                <div
+                  class="bg-white rounded-2xl p-6 border border-gray-100 shadow-lg shadow-gray-200/50 flex flex-col justify-between h-44 transition-transform hover:-translate-y-1"
+                >
+                  <div class="flex justify-between items-start">
+                    <h2 class="text-gray-700 font-bold text-xl sm:text-2xl">
+                      کل هزینه ها
+                    </h2>
+                  </div>
+                  <div
+                    class="flex items-center justify-end gap-2 text-rose-500 font-extrabold text-2xl sm:text-3xl dir-ltr"
+                  >
+                    <i class="fa-solid fa-arrow-down text-xl"></i>
+                    <span>25.200.000</span>
+                    <span class="text-lg font-normal">تومان</span>
+                  </div>
+                  <button
+                    onclick="showTotalExpenseDetails()"
+                    class="text-right text-gray-500 hover:text-purple1 text-sm font-medium transition-colors cursor-pointer"
+                  >
+                    مشاهده
+                  </button>
+                </div>
+
+                <!-- سود خالص -->
+                <div
+                  class="bg-white rounded-2xl p-6 border border-gray-100 shadow-lg shadow-gray-200/50 flex flex-col justify-between h-44 transition-transform hover:-translate-y-1"
+                >
+                  <div class="flex justify-between items-start">
+                    <h2 class="text-gray-700 font-bold text-xl sm:text-2xl">
+                      سود خالص
+                    </h2>
+                  </div>
+                  <div
+                    class="flex items-center justify-end gap-2 text-purple1 font-extrabold text-2xl sm:text-3xl dir-ltr"
+                  >
+                    <span>25.200.000</span>
+                    <span class="text-lg font-normal">تومان</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- جدول تراکنش‌های اخیر -->
+              <div class="space-y-4">
+                <h3
+                  class="text-blackPrimary font-extrabold text-lg sm:text-xl text-right pr-2"
+                >
+                  تراکنش های اخیر
+                </h3>
+
+                <div
+                  class="bg-white border border-gray-200 rounded-2xl sm:rounded-3xl overflow-hidden shadow-sm"
+                >
+                  <!-- کانتینر اسکرول افقی: از سایز lg به پایین اسکرول می‌خورد -->
+                  <div class="overflow-x-auto max-w-full">
+                    <!-- حداقل عرض ثابت برای دسکتاپ/تبلت -->
+                    <div class="min-w-[800px] whitespace-nowrap">
+                      <!-- هدر جدول (تقسیم‌بندی ثابت ۱۲ ستونی) -->
+                      <div
+                        class="bg-purple1 text-white grid grid-cols-12 gap-2 text-center py-3.5 px-4 font-bold text-sm items-center"
+                      >
+                        <div class="col-span-2">نوع</div>
+                        <div class="col-span-3 text-right pr-2">عنوان</div>
+                        <div class="col-span-3">مبلغ</div>
+                        <div class="col-span-2">تاریخ</div>
+                        <div class="col-span-2">عملیات</div>
+                      </div>
+
+                      <!-- بدنه جدول (رندر توسط JS) -->
+                      <div
+                        id="transactions-list"
+                        class="divide-y divide-gray-100"
+                      >
+                        <!-- آیتم‌ها از طریق JS تزریق می‌شوند -->
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- فوتر جدول -->
+                  <div
+                    class="p-4 text-right bg-gray-50/50 border-t border-gray-100"
+                  >
+                    <a
+                      href="#"
+                      class="text-purple1 font-bold hover:underline text-sm"
+                    >
+                      مشاهده همه
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- ۲. نمای جزئیات کل درآمد                    -->
+            <!-- ========================================== -->
+            <section
+              id="income-details-view"
+              class="w-full mx-auto space-y-8 hidden"
+            >
+              <div class="flex justify-end">
+                <button
+                  onclick="showAccountingMain()"
+                  class="flex items-center gap-2 text-gray-600 hover:text-purple1 font-bold text-sm transition-colors cursor-pointer bg-white px-4 py-2 rounded-xl border border-gray-200"
+                >
+                  <span>بازگشت به حسابداری</span>
+                  <i class="fa-solid fa-arrow-left"></i>
+                </button>
+              </div>
+
+              <div
+                class="bg-white rounded-[24px] p-6 sm:p-8 border border-gray-200 shadow-md flex flex-col sm:flex-row items-center justify-between gap-4"
+              >
+                <div
+                  class="flex items-center gap-3 text-emerald-500 font-extrabold text-2xl sm:text-3xl dir-ltr"
+                >
+                  <svg
+                    class="w-7 h-7 text-gray-800 shrink-0"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                    />
+                  </svg>
+                  <span>25.200.000</span>
+                  <span class="text-lg font-bold text-emerald-500">تومان</span>
+                </div>
+                <h2 class="text-gray-900 font-extrabold text-2xl sm:text-3xl">
+                  کل درآمد
+                </h2>
+              </div>
+
+              <div class="space-y-4">
+                <div class="flex items-center justify-between px-2">
+                  <h3 class="text-gray-900 font-extrabold text-lg sm:text-xl">
+                    درآمد ها
+                  </h3>
+                  <button
+                    onclick="openIncomeModal()"
+                    class="text-purple1 font-bold text-base hover:opacity-80 transition cursor-pointer flex items-center gap-1"
+                  >
+                    <span>+ افزودن درآمد</span>
+                  </button>
+                </div>
+
+                <div
+                  class="bg-white border border-gray-300 rounded-[28px] overflow-hidden shadow-sm"
+                >
+                  <!-- کانتینر اسکرول افقی: از سایز lg به پایین اسکرول می‌خورد -->
+                  <div class="overflow-x-auto max-w-full">
+                    <!-- حداقل عرض ثابت برای حفظ ساختار کامل جدول -->
+                    <div class="min-w-[850px] whitespace-nowrap">
+                      <!-- هدر جدول (هماهنگ با ستون‌های JS) -->
+                      <div
+                        class="bg-purple1 text-white grid grid-cols-12 gap-2 text-center py-3.5 px-4 font-bold text-sm items-center"
+                      >
+                        <div class="col-span-2">نوع</div>
+                        <div class="col-span-2 text-right pr-2">عنوان</div>
+                        <div class="col-span-3">مبلغ</div>
+                        <div class="col-span-2">تاریخ</div>
+                        <div class="col-span-3">عملیات</div>
+                      </div>
+
+                      <!-- بدنه جدول (رندر توسط JS) -->
+                      <div
+                        id="income-table-rows"
+                        class="divide-y divide-rose-200/60"
+                      >
+                        <!-- آیتم‌ها از طریق JS تزریق می‌شوند -->
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- فوتر جدول -->
+                  <div
+                    class="p-4 sm:p-5 text-right bg-white border-t border-gray-100"
+                  >
+                    <a
+                      href="#"
+                      class="text-purple1 font-bold hover:underline text-sm sm:text-base"
+                    >
+                      مشاهده همه
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- ========================================== -->
+            <!-- ۳. نمای جزئیات کل هزینه‌ها (جدید)          -->
+            <!-- ========================================== -->
+            <section
+              id="expense-details-view"
+              class="w-full mx-auto space-y-8 hidden"
+            >
+              <div class="flex justify-end">
+                <button
+                  onclick="showAccountingMain()"
+                  class="flex items-center gap-2 text-gray-600 hover:text-purple1 font-bold text-sm transition-colors cursor-pointer bg-white px-4 py-2 rounded-xl border border-gray-200"
+                >
+                  <span>بازگشت به حسابداری</span>
+                  <i class="fa-solid fa-arrow-left"></i>
+                </button>
+              </div>
+
+              <!-- کارت برآمد کل هزینه ها -->
+              <div
+                class="bg-white rounded-[24px] p-6 sm:p-8 border border-gray-200 shadow-md flex flex-col sm:flex-row items-center justify-between gap-4"
+              >
+                <div
+                  class="flex items-center gap-3 text-purple1 font-extrabold text-2xl sm:text-3xl dir-ltr"
+                >
+                  <svg
+                    class="w-7 h-7 text-gray-800 shrink-0"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                    />
+                  </svg>
+                  <span>25.200.000</span>
+                  <span class="text-lg font-bold text-purple1">تومان</span>
+                </div>
+                <h2 class="text-gray-900 font-extrabold text-2xl sm:text-3xl">
+                  کل هزینه ها
+                </h2>
+              </div>
+
+              <!-- جدول هزینه ها -->
+              <div class="space-y-4">
+                <div class="flex items-center justify-between px-2">
+                  <h3 class="text-gray-900 font-extrabold text-lg sm:text-xl">
+                    هزینه ها
+                  </h3>
+                  <button
+                    onclick="openExpenseModal()"
+                    class="text-purple1 font-bold text-base hover:opacity-80 transition cursor-pointer flex items-center gap-1"
+                  >
+                    <span>+ افزودن هزینه</span>
+                  </button>
+                </div>
+
+                <div
+                  class="bg-white border border-gray-300 rounded-[28px] overflow-hidden shadow-sm"
+                >
+                  <!-- کانتینر اسکرول افقی -->
+                  <div class="overflow-x-auto max-w-full">
+                    <div class="min-w-[850px] whitespace-nowrap">
+                      <!-- هدر جدول -->
+                      <div
+                        class="bg-purple1 text-white grid grid-cols-12 gap-2 text-center py-3.5 px-4 font-bold text-sm items-center"
+                      >
+                        <div class="col-span-2">نوع</div>
+                        <div class="col-span-2 text-right pr-2">عنوان</div>
+                        <div class="col-span-3">مبلغ</div>
+                        <div class="col-span-2">تاریخ</div>
+                        <div class="col-span-3">عملیات</div>
+                      </div>
+
+                      <!-- بدنه جدول (رندر توسط JS) -->
+                      <div
+                        id="expense-table-rows"
+                        class="divide-y divide-rose-200/60"
+                      >
+                        <!-- سطرها از طریق JS تزریق می‌شوند -->
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- فوتر جدول -->
+                  <div
+                    class="p-4 sm:p-5 text-right bg-white border-t border-gray-100"
+                  >
+                    <a
+                      href="#"
+                      class="text-purple1 font-bold hover:underline text-sm sm:text-base"
+                    >
+                      مشاهده همه
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </section>
+
+          <!-- بخش تنظیمات -->
+          <section id="settings-section" class="admin-section hidden">
+            <!-- تب‌های بالای فرم -->
+            <div
+              class="flex items-center gap-8 mb-6 border-b border-gray-200 pb-3 text-sm sm:text-base font-bold"
+            >
+              <button
+                type="button"
+                data-tab="account-info"
+                class="tab-btn text-purple1 border-b-2 border-purple1/50 pb-2 transition-all cursor-pointer"
+              >
+                اطلاعات حساب
+              </button>
+              <button
+                type="button"
+                data-tab="change-password"
+                class="tab-btn text-gray-500 hover:text-gray-800 pb-2 transition-all cursor-pointer"
+              >
+                تغییر رمز عبور
+              </button>
+              <button
+                type="button"
+                data-tab="admin-access"
+                class="tab-btn text-gray-500 hover:text-gray-800 pb-2 transition-all cursor-pointer"
+              >
+                دسترسی ادمین
+              </button>
+            </div>
+
+            <!-- محتوای تب: اطلاعات حساب -->
+            <div
+              id="tab-account-info"
+              class="tab-content border border-rose-300 rounded-3xl p-6 sm:p-8 bg-white shadow-sm"
+            >
+              <form id="admin-profile-form" class="space-y-6">
+                <!-- شبکه ۳ ستونه ورودی‌ها -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <!-- نام و نام خانوادگی -->
+                  <div class="flex flex-col gap-2">
+                    <label
+                      for="admin-fullName"
+                      class="text-sm font-bold text-black-primary"
+                      >نام و نام خانوادگی</label
+                    >
+                    <input
+                      type="text"
+                      id="admin-fullName"
+                      name="fullName"
+                      placeholder="امیر رضایی"
+                      class="w-full px-4 py-3 rounded-2xl border border-gray-400 focus:border-rose-500 focus:ring-1 focus:ring-rose-500 outline-none text-rose-700 font-medium placeholder-rose-300 transition-all text-center"
+                    />
+                  </div>
+
+                  <!-- شماره تماس -->
+                  <div class="flex flex-col gap-2">
+                    <label
+                      for="admin-phone"
+                      class="text-sm font-bold text-black-primary"
+                      >شماره تماس</label
+                    >
+                    <input
+                      type="text"
+                      id="admin-phone"
+                      name="phone"
+                      placeholder="مثال"
+                      class="w-full px-4 py-3 rounded-2xl border border-gray-400 focus:border-rose-500 focus:ring-1 focus:ring-rose-500 outline-none text-rose-700 font-medium placeholder-rose-300 transition-all text-center"
+                    />
+                  </div>
+
+                  <!-- آی‌دی اینستاگرام -->
+                  <div class="flex flex-col gap-2">
+                    <label
+                      for="admin-instagram"
+                      class="text-sm font-bold text-black-primary"
+                      >آیدی اینستاگرام</label
+                    >
+                    <input
+                      type="text"
+                      id="admin-instagram"
+                      name="instagram"
+                      placeholder="@example"
+                      dir="ltr"
+                      class="w-full px-4 py-3 rounded-2xl border border-gray-400 focus:border-rose-500 focus:ring-1 focus:ring-rose-500 outline-none text-rose-700 font-medium placeholder-rose-300 transition-all text-center"
+                    />
+                  </div>
+
+                  <!-- آی‌دی تلگرام -->
+                  <div class="flex flex-col gap-2">
+                    <label
+                      for="admin-telegram"
+                      class="text-sm font-bold text-black-primary"
+                      >آیدی تلگرام</label
+                    >
+                    <input
+                      type="text"
+                      id="admin-telegram"
+                      name="telegram"
+                      placeholder="@example"
+                      dir="ltr"
+                      class="w-full px-4 py-3 rounded-2xl border border-gray-400 focus:border-rose-500 focus:ring-1 focus:ring-rose-500 outline-none text-rose-700 font-medium placeholder-rose-300 transition-all text-center"
+                    />
+                  </div>
+
+                  <!-- آی‌دی روبیکا -->
+                  <div class="flex flex-col gap-2">
+                    <label
+                      for="admin-rubika"
+                      class="text-sm font-bold text-black-primary"
+                      >آیدی روبیکا</label
+                    >
+                    <input
+                      type="text"
+                      id="admin-rubika"
+                      name="rubika"
+                      placeholder="-"
+                      dir="ltr"
+                      class="w-full px-4 py-3 rounded-2xl border border-gray-400 focus:border-rose-500 focus:ring-1 focus:ring-rose-500 outline-none text-rose-700 font-medium placeholder-rose-300 transition-all text-center"
+                    />
+                  </div>
+
+                  <!-- آی‌دی واتساپ -->
+                  <div class="flex flex-col gap-2">
+                    <label
+                      for="admin-whatsapp"
+                      class="text-sm font-bold text-black-primary"
+                      >آیدی واتساپ</label
+                    >
+                    <input
+                      type="text"
+                      id="admin-whatsapp"
+                      name="whatsapp"
+                      placeholder="@example"
+                      dir="ltr"
+                      class="w-full px-4 py-3 rounded-2xl border border-gray-400 focus:border-rose-500 focus:ring-1 focus:ring-rose-500 outline-none text-rose-700 font-medium placeholder-rose-300 transition-all text-center"
+                    />
+                  </div>
+                </div>
+
+                <!-- آدرس فروشگاه -->
+                <div class="flex flex-col gap-2 pt-2">
+                  <label
+                    for="admin-address"
+                    class="text-sm font-bold text-black-primary"
+                    >آدرس فروشگاه</label
+                  >
+                  <textarea
+                    id="admin-address"
+                    name="address"
+                    rows="3"
+                    placeholder="پیام تست پیام تست پیام تست پیام تست پیام تست پیام تست پیام تست پیام ت"
+                    class="w-full p-4 rounded-2xl border border-gray-400 focus:border-rose-500 focus:ring-1 focus:ring-rose-500 outline-none text-rose-700 font-medium placeholder-rose-300 transition-all resize-none text-right"
+                  ></textarea>
+                </div>
+
+                <!-- دکمه ذخیره تغییرات -->
+                <div class="pt-4">
+                  <button
+                    type="submit"
+                    class="bg-[#f2e2ce] text-black-primary font-bold px-8 py-3 rounded-2xl shadow-md hover:bg-[#e6d0ba] active:scale-95 transition-all cursor-pointer border border-[#e2cca4]"
+                  >
+                    ذخیره تغییرات
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <!-- محتوای تب: تغییر رمز عبور -->
+            <div
+              id="tab-change-password"
+              class="tab-content hidden border border-rose-300 rounded-3xl p-6 sm:p-8 bg-white shadow-sm"
+            >
+              <form id="change-password-form" class="space-y-6">
+                <!-- رمز عبور فعلی -->
+                <div class="space-y-2">
+                  <label
+                    for="current-password"
+                    class="block text-sm font-bold text-black-primary text-right"
+                  >
+                    رمز عبور فعلی
+                  </label>
+                  <div class="relative">
+                    <input
+                      type="password"
+                      id="current-password"
+                      name="currentPassword"
+                      placeholder="رمز عبور فعلی را وارد کنید"
+                      required
+                      class="w-full px-4 py-3 rounded-2xl border border-gray-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/30 outline-none text-rose-700 font-medium placeholder:text-gray-400 transition-all text-right"
+                    />
+                    <button
+                      type="button"
+                      onclick="
+                        togglePasswordVisibility('current-password', this)
+                      "
+                      class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition"
+                    >
+                      <svg
+                        class="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                        />
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- رمز عبور جدید -->
+                <div class="space-y-2">
+                  <label
+                    for="new-password"
+                    class="block text-sm font-bold text-black-primary text-right"
+                  >
+                    رمز عبور جدید را وارد کنید
+                  </label>
+                  <div class="relative">
+                    <input
+                      type="password"
+                      id="new-password"
+                      name="newPassword"
+                      placeholder="رمز عبور جدید را وارد کنید"
+                      required
+                      minlength="6"
+                      class="w-full px-4 py-3 rounded-2xl border border-gray-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/30 outline-none text-rose-700 font-medium placeholder:text-gray-400 transition-all text-right"
+                    />
+                    <button
+                      type="button"
+                      onclick="togglePasswordVisibility('new-password', this)"
+                      class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition"
+                    >
+                      <svg
+                        class="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                        />
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                  <!-- نشانگر قدرت رمز -->
+                  <div class="mt-2">
+                    <div class="flex items-center gap-2">
+                      <div
+                        class="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden"
+                      >
+                        <div
+                          id="password-strength-bar"
+                          class="h-full w-0 transition-all duration-300 rounded-full"
+                        ></div>
+                      </div>
+                      <span
+                        id="password-strength-text"
+                        class="text-xs font-medium text-gray-500 min-w-[60px]"
+                        >ضعیف</span
+                      >
+                    </div>
+                  </div>
+                </div>
+
+                <!-- تکرار رمز عبور جدید -->
+                <div class="space-y-2">
+                  <label
+                    for="confirm-password"
+                    class="block text-sm font-bold text-black-primary text-right"
+                  >
+                    تکرار رمز عبور جدید
+                  </label>
+                  <div class="relative">
+                    <input
+                      type="password"
+                      id="confirm-password"
+                      name="confirmPassword"
+                      placeholder="رمز عبور جدید را مجدداً وارد کنید"
+                      required
+                      class="w-full px-4 py-3 rounded-2xl border border-gray-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/30 outline-none text-rose-700 font-medium placeholder:text-gray-400 transition-all text-right"
+                    />
+                    <button
+                      type="button"
+                      onclick="
+                        togglePasswordVisibility('confirm-password', this)
+                      "
+                      class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition"
+                    >
+                      <svg
+                        class="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                        />
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                  <!-- پیام تطابق رمزها -->
+                  <div
+                    id="password-match-message"
+                    class="text-xs font-medium mt-1 hidden"
+                  ></div>
+                </div>
+
+                <!-- دکمه ذخیره تغییرات -->
+                <div class="pt-4">
+                  <button
+                    type="submit"
+                    id="change-password-btn"
+                    class="bg-[#f2e2ce] text-black-primary font-bold px-8 py-3 rounded-2xl shadow-md hover:bg-[#e6d0ba] active:scale-95 transition-all cursor-pointer border border-[#e2cca4] disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    ذخیره تغییرات
+                  </button>
+                </div>
+
+                <!-- پیام موفقیت/خطا -->
+                <div
+                  id="password-message"
+                  class="hidden p-4 rounded-2xl text-sm font-bold text-right"
+                ></div>
+              </form>
+            </div>
+            <!-- محتوای تب: دسترسی ادمین -->
+            <div
+              id="tab-admin-access"
+              class="tab-content hidden border border-rose-300 rounded-2xl sm:rounded-3xl p-4 sm:p-8 bg-white shadow-sm"
+            >
+              <!-- هدر با دکمه افزودن ادمین -->
+              <div
+                class="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 mb-6"
+              >
+                <h3
+                  class="text-base sm:text-lg font-bold text-black-primary text-center sm:text-right"
+                >
+                  مدیریت دسترسی ادمین‌ها
+                </h3>
+                <button
+                  onclick="openAddAdminModal()"
+                  class="bg-yasi text-black-primary font-bold px-5 py-2.5 rounded-xl sm:rounded-2xl shadow-md hover:bg-yasi/40 active:scale-95 transition-all cursor-pointer border border-[#e2cca4] flex items-center justify-center gap-2 text-xs sm:text-sm w-full sm:w-auto whitespace-nowrap"
+                >
+                  <svg
+                    class="w-4 h-4 sm:w-5 sm:h-5 shrink-0"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M12 4v16m8-8H4"
+                    />
+                  </svg>
+                  <span>افزودن ادمین جدید</span>
+                </button>
+              </div>
+
+              <!-- جدول لیست ادمین‌ها -->
+              <div
+                class="bg-white border border-gray-200 rounded-xl sm:rounded-2xl shadow-sm overflow-hidden"
+              >
+                <!-- کانتینر اسکرول افقی: فقط از سایز lg به پایین اسکرول می‌خورد -->
+                <div class="overflow-x-auto max-w-full">
+                  <!-- 
+                    جدول با حداقل عرض ثابت: 
+                    min-w-[800px] باعث می‌شود جدول از ۸۰۰ پیکسل کوچکتر نشود و در صفحه‌های کوچکتر اسکرول بخورد.
+                    whitespace-nowrap جلوگیری می‌کند از شکستن متن به خط بعدی.
+                  -->
+                  <div class="min-w-[800px] whitespace-nowrap">
+                    <!-- هدر جدول -->
+                    <div
+                      class="bg-purple1 text-white grid grid-cols-12 gap-4 text-center py-3 px-4 font-bold text-sm items-center"
+                    >
+                      <div class="col-span-3 text-right pr-2">نام</div>
+                      <div class="col-span-3">شماره تماس</div>
+                      <div class="col-span-2">وضعیت</div>
+                      <div class="col-span-2">فعالیت</div>
+                      <div class="col-span-2">عملیات</div>
+                    </div>
+
+                    <!-- بدنه جدول (رندر توسط JS) -->
+                    <div id="admin-users-list" class="divide-y divide-gray-100">
+                      <!-- 
+                        نکته مهم برای فایل JS: 
+                        مطمئن شوید در کلاس‌های سطرهایی که با JS رندر می‌کنید، ساختار گرید با هدر یکسان باشد:
+                        class="grid grid-cols-12 gap-4 text-center py-3 px-4 items-center"
+                      -->
+                    </div>
+                  </div>
+                </div>
+
+                <!-- فوتر جدول -->
+                <div
+                  class="p-4 text-center sm:text-left bg-gray-50/50 border-t border-gray-100"
+                >
+                  <span
+                    id="admin-count"
+                    class="text-xs text-gray-500 font-medium"
+                  >
+                    نمایش ۰ از ۰ ادمین
+                  </span>
+                </div>
+              </div>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+    <!-- مودال ها -->
+    <!-- ========================================== -->
+    <!-- مودال ویرایش تراکنش اخیر -->
+    <!-- ========================================== -->
+    <div
+      id="edit-transaction-modal"
+      class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden"
+    >
+      <div
+        class="bg-white rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl relative"
+      >
+        <div class="flex justify-between items-center border-b pb-3">
+          <h3 class="text-lg font-bold text-gray-800">ویرایش تراکنش</h3>
+          <button
+            onclick="closeEditTransactionModal()"
+            class="text-gray-400 hover:text-gray-600 text-xl font-bold cursor-pointer"
+          >
+            &times;
+          </button>
+        </div>
+        <form onsubmit="handleEditTransactionSubmit(event)" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >نوع تراکنش</label
+            >
+            <select
+              id="edit-transaction-type"
+              class="w-full border border-gray-300 rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-purple1"
+            >
+              <option value="درآمد">درآمد</option>
+              <option value="هزینه">هزینه</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >عنوان</label
+            >
+            <input
+              type="text"
+              id="edit-transaction-title"
+              required
+              class="w-full border border-gray-300 rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-purple1"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >مبلغ (تومان)</label
+            >
+            <input
+              type="text"
+              id="edit-transaction-amount"
+              required
+              class="w-full border border-gray-300 rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-purple1"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >تاریخ</label
+            >
+            <input
+              type="text"
+              id="edit-transaction-date"
+              required
+              class="w-full border border-gray-300 rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-purple1"
+            />
+          </div>
+          <div class="flex justify-end gap-2 pt-2 border-t">
+            <button
+              type="button"
+              onclick="closeEditTransactionModal()"
+              class="px-4 py-2 text-sm font-bold text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200 cursor-pointer"
+            >
+              انصراف
+            </button>
+            <button
+              type="submit"
+              class="px-4 py-2 text-sm font-bold text-white bg-purple1 rounded-xl hover:opacity-90 cursor-pointer"
+            >
+              ذخیره تغییرات
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+    <!-- ========================================== -->
+    <!-- مودال ویرایش درآمد -->
+    <!-- ========================================== -->
+    <div
+      id="edit-income-modal"
+      class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden"
+    >
+      <div
+        class="bg-white rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl relative"
+      >
+        <div class="flex justify-between items-center border-b pb-3">
+          <h3 class="text-lg font-bold text-gray-800">ویرایش اطلاعات درآمد</h3>
+          <button
+            onclick="closeEditIncomeModal()"
+            class="text-gray-400 hover:text-gray-600 text-xl font-bold cursor-pointer"
+          >
+            &times;
+          </button>
+        </div>
+        <form onsubmit="handleEditIncomeSubmit(event)" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >عنوان</label
+            >
+            <input
+              type="text"
+              id="edit-income-title"
+              required
+              class="w-full border border-gray-300 rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >مبلغ (تومان)</label
+            >
+            <input
+              type="text"
+              id="edit-income-amount"
+              required
+              class="w-full border border-gray-300 rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >تاریخ</label
+            >
+            <input
+              type="text"
+              id="edit-income-date"
+              required
+              class="w-full border border-gray-300 rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+          </div>
+          <div class="flex justify-end gap-2 pt-2 border-t">
+            <button
+              type="button"
+              onclick="closeEditIncomeModal()"
+              class="px-4 py-2 text-sm font-bold text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200 cursor-pointer"
+            >
+              انصراف
+            </button>
+            <button
+              type="submit"
+              class="px-4 py-2 text-sm font-bold text-white bg-emerald-600 rounded-xl hover:opacity-90 cursor-pointer"
+            >
+              ذخیره تغییرات
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+    <!-- ========================================== -->
+    <!-- مودال ویرایش هزینه -->
+    <!-- ========================================== -->
+    <div
+      id="edit-expense-modal"
+      class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden"
+    >
+      <div
+        class="bg-white rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl relative"
+      >
+        <div class="flex justify-between items-center border-b pb-3">
+          <h3 class="text-lg font-bold text-gray-800">ویرایش اطلاعات هزینه</h3>
+          <button
+            onclick="closeEditExpenseModal()"
+            class="text-gray-400 hover:text-gray-600 text-xl font-bold cursor-pointer"
+          >
+            &times;
+          </button>
+        </div>
+        <form onsubmit="handleEditExpenseSubmit(event)" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >عنوان</label
+            >
+            <input
+              type="text"
+              id="edit-expense-title"
+              required
+              class="w-full border border-gray-300 rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-rose-500"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >مبلغ (تومان)</label
+            >
+            <input
+              type="text"
+              id="edit-expense-amount"
+              required
+              class="w-full border border-gray-300 rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-rose-500"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >تاریخ</label
+            >
+            <input
+              type="text"
+              id="edit-expense-date"
+              required
+              class="w-full border border-gray-300 rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-rose-500"
+            />
+          </div>
+          <div class="flex justify-end gap-2 pt-2 border-t">
+            <button
+              type="button"
+              onclick="closeEditExpenseModal()"
+              class="px-4 py-2 text-sm font-bold text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200 cursor-pointer"
+            >
+              انصراف
+            </button>
+            <button
+              type="submit"
+              class="px-4 py-2 text-sm font-bold text-white bg-rose-500 rounded-xl hover:opacity-90 cursor-pointer"
+            >
+              ذخیره تغییرات
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+    <!-- ========================================== -->
+    <!-- مودال افزودن درآمد جدید                    -->
+    <!-- ========================================== -->
+    <div
+      id="add-income-modal"
+      class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden"
+    >
+      <div
+        class="bg-white rounded-[28px] w-full max-w-sm p-6 sm:p-7 shadow-2xl relative transition-all transform scale-100 border border-gray-100"
+      >
+        <!-- دکمه بستن -->
+        <button
+          onclick="closeIncomeModal()"
+          class="text-gray-400 hover:text-gray-600 transition cursor-pointer absolute top-5 left-5"
+        >
+          <svg
+            class="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
+        </button>
+
+        <!-- تیتر مودال -->
+        <h3 class="text-emerald-500 font-extrabold text-2xl text-center mb-6">
+          افزودن درآمد جدید
+        </h3>
+
+        <!-- فرم ورودی -->
+        <form
+          id="add-income-form"
+          onsubmit="handleIncomeSubmit(event)"
+          class="space-y-4"
+        >
+          <!-- عنوان -->
+          <div class="space-y-1.5 text-right">
+            <label
+              for="income-title"
+              class="block text-gray-800 font-bold text-sm"
+              >عنوان</label
+            >
+            <input
+              type="text"
+              id="income-title"
+              placeholder="مثال: فروش کالا"
+              required
+              class="w-full px-4 py-3 rounded-2xl border border-gray-300 focus:outline-none focus:border-emerald-500 text-right text-gray-700 placeholder-gray-300 transition shadow-sm text-sm"
+            />
+          </div>
+
+          <!-- مبلغ -->
+          <div class="space-y-1.5 text-right">
+            <label
+              for="income-amount"
+              class="block text-gray-800 font-bold text-sm"
+              >مبلغ(تومان)</label
+            >
+            <input
+              type="text"
+              id="income-amount"
+              placeholder="مثال: 800.000"
+              required
+              class="w-full px-4 py-3 rounded-2xl border border-gray-300 focus:outline-none focus:border-emerald-500 text-right text-gray-700 placeholder-gray-300 transition shadow-sm text-sm"
+            />
+          </div>
+
+          <!-- تاریخ -->
+          <div class="space-y-1.5 text-right">
+            <label
+              for="income-date"
+              class="block text-gray-800 font-bold text-sm"
+              >تاریخ</label
+            >
+            <div class="relative">
+              <input
+                type="text"
+                id="income-date"
+                value="1405/05/17"
+                required
+                class="w-full pl-10 pr-4 py-3 rounded-2xl border border-gray-300 focus:outline-none focus:border-emerald-500 text-right text-gray-800 font-semibold transition shadow-sm text-sm"
+              />
+              <div
+                class="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-600 pointer-events-none"
+              >
+                <svg
+                  class="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <!-- دکمه ثبت -->
+          <div class="pt-4 flex justify-center">
+            <button
+              type="submit"
+              class="w-3/5 bg-[#ffebd7] text-gray-900 hover:bg-[#fbd3ad] font-bold py-2.5 rounded-2xl shadow-md border border-[#fbd3ad] transition cursor-pointer text-base"
+            >
+              افزودن
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+    <!-- ========================================== -->
+    <!-- مودال افزودن هزینه جدید                    -->
+    <!-- ========================================== -->
+    <div
+      id="add-expense-modal"
+      class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden"
+    >
+      <div
+        class="bg-white rounded-[28px] w-full max-w-sm p-6 sm:p-7 shadow-2xl relative transition-all transform scale-100 border border-gray-100"
+      >
+        <!-- دکمه بستن -->
+        <button
+          onclick="closeExpenseModal()"
+          class="text-gray-400 hover:text-gray-600 transition cursor-pointer absolute top-5 left-5"
+        >
+          <svg
+            class="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
+        </button>
+
+        <!-- تیتر مودال (رنگ قرمز) -->
+        <h3 class="text-rose-500 font-extrabold text-2xl text-center mb-6">
+          افزودن هزینه جدید
+        </h3>
+
+        <!-- فرم ورودی -->
+        <form
+          id="add-expense-form"
+          onsubmit="handleExpenseSubmit(event)"
+          class="space-y-4"
+        >
+          <!-- عنوان -->
+          <div class="space-y-1.5 text-right">
+            <label
+              for="expense-title"
+              class="block text-gray-800 font-bold text-sm"
+              >عنوان</label
+            >
+            <input
+              type="text"
+              id="expense-title"
+              placeholder="مثال: خرید کالا"
+              required
+              class="w-full px-4 py-3 rounded-2xl border border-gray-300 focus:outline-none focus:border-rose-500 text-right text-gray-700 placeholder-gray-300 transition shadow-sm text-sm"
+            />
+          </div>
+
+          <!-- مبلغ -->
+          <div class="space-y-1.5 text-right">
+            <label
+              for="expense-amount"
+              class="block text-gray-800 font-bold text-sm"
+              >مبلغ(تومان)</label
+            >
+            <input
+              type="text"
+              id="expense-amount"
+              placeholder="مثال: 800.000"
+              required
+              class="w-full px-4 py-3 rounded-2xl border border-gray-300 focus:outline-none focus:border-rose-500 text-right text-gray-700 placeholder-gray-300 transition shadow-sm text-sm"
+            />
+          </div>
+
+          <!-- تاریخ -->
+          <div class="space-y-1.5 text-right">
+            <label
+              for="expense-date"
+              class="block text-gray-800 font-bold text-sm"
+              >تاریخ</label
+            >
+            <div class="relative">
+              <input
+                type="text"
+                id="expense-date"
+                value="1405/05/17"
+                required
+                class="w-full pl-10 pr-4 py-3 rounded-2xl border border-gray-300 focus:outline-none focus:border-rose-500 text-right text-gray-800 font-semibold transition shadow-sm text-sm"
+              />
+              <div
+                class="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-600 pointer-events-none"
+              >
+                <svg
+                  class="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 0 02-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 02 2z"
+                  />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <!-- دکمه ثبت -->
+          <div class="pt-4 flex justify-center">
+            <button
+              type="submit"
+              class="w-3/5 bg-[#ffebd7] text-gray-900 hover:bg-[#fbd3ad] font-bold py-2.5 rounded-2xl shadow-md border border-[#fbd3ad] transition cursor-pointer text-base"
+            >
+              افزودن
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+    <!-- ========================================== -->
+    <!-- مودال افزودن ادمین جدید                    -->
+    <!-- ========================================== -->
+    <div
+      id="add-admin-modal"
+      class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden"
+    >
+      <div
+        class="bg-white rounded-[28px] w-full max-w-md p-6 sm:p-8 shadow-2xl relative transition-all transform scale-100 border border-gray-100"
+      >
+        <!-- دکمه بستن -->
+        <button
+          onclick="closeAddAdminModal()"
+          class="text-gray-400 hover:text-gray-600 transition cursor-pointer absolute top-4 left-4"
+        >
+          <svg
+            class="w-6 h-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
+        </button>
+
+        <!-- تیتر مودال -->
+        <h3 class="text-purple1 font-extrabold text-2xl text-center mb-6">
+          افزودن ادمین جدید
+        </h3>
+
+        <!-- فرم ورودی -->
+        <form
+          id="add-admin-form"
+          onsubmit="handleAddAdminSubmit(event)"
+          class="space-y-5"
+        >
+          <!-- نام کامل -->
+          <div class="space-y-1.5 text-right">
+            <label
+              for="admin-fullname"
+              class="block text-gray-800 font-bold text-sm"
+            >
+              نام کامل <span class="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              id="admin-fullname"
+              placeholder="مثال: امیر رضایی"
+              required
+              class="w-full px-4 py-3 rounded-2xl border border-gray-300 focus:outline-none focus:border-purple1 focus:ring-2 focus:ring-purple1/30 text-right text-gray-700 placeholder:text-gray-300 transition shadow-sm text-sm"
+            />
+          </div>
+
+          <!-- شماره تماس -->
+          <div class="space-y-1.5 text-right">
+            <label
+              for="admin-phone-number"
+              class="block text-gray-800 font-bold text-sm"
+            >
+              شماره تماس <span class="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              id="admin-phone-number"
+              placeholder="مثال: 09123456789"
+              required
+              class="w-full px-4 py-3 rounded-2xl border border-gray-300 focus:outline-none focus:border-purple1 focus:ring-2 focus:ring-purple1/30 text-right text-gray-700 placeholder:text-gray-300 transition shadow-sm text-sm"
+            />
+          </div>
+
+          <!-- نام کاربری -->
+          <div class="space-y-1.5 text-right">
+            <label
+              for="admin-username"
+              class="block text-gray-800 font-bold text-sm"
+            >
+              نام کاربری <span class="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              id="admin-username"
+              placeholder="مثال: admin"
+              required
+              class="w-full px-4 py-3 rounded-2xl border border-gray-300 focus:outline-none focus:border-purple1 focus:ring-2 focus:ring-purple1/30 text-right text-gray-700 placeholder:text-gray-300 transition shadow-sm text-sm"
+            />
+          </div>
+
+          <!-- رمز عبور -->
+          <div class="space-y-1.5 text-right">
+            <label
+              for="admin-password"
+              class="block text-gray-800 font-bold text-sm"
+            >
+              رمز عبور <span class="text-red-500">*</span>
+            </label>
+            <div class="relative">
+              <input
+                type="password"
+                id="admin-password"
+                placeholder="حداقل 6 کاراکتر"
+                required
+                minlength="6"
+                class="w-full px-4 py-3 rounded-2xl border border-gray-300 focus:outline-none focus:border-purple1 focus:ring-2 focus:ring-purple1/30 text-right text-gray-700 placeholder:text-gray-300 transition shadow-sm text-sm"
+              />
+              <button
+                type="button"
+                onclick="togglePasswordVisibility('admin-password', this)"
+                class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition"
+              >
+                <svg
+                  class="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                  />
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                  />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- وضعیت ادمین -->
+          <div class="space-y-1.5 text-right">
+            <label class="block text-gray-800 font-bold text-sm">وضعیت</label>
+            <div class="flex items-center gap-6 justify-end">
+              <label
+                class="flex items-center gap-2 cursor-pointer text-sm font-bold text-black-primary"
+              >
+                <span>فعال</span>
+                <input
+                  type="radio"
+                  name="admin-status"
+                  value="فعال"
+                  checked
+                  class="w-4 h-4 accent-purple1 cursor-pointer"
+                />
+              </label>
+              <label
+                class="flex items-center gap-2 cursor-pointer text-sm font-bold text-black-primary"
+              >
+                <span>غیرفعال</span>
+                <input
+                  type="radio"
+                  name="admin-status"
+                  value="غیرفعال"
+                  class="w-4 h-4 accent-purple1 cursor-pointer"
+                />
+              </label>
+            </div>
+          </div>
+
+          <!-- دکمه ثبت -->
+          <div class="pt-4 flex justify-center">
+            <button
+              type="submit"
+              class="w-full bg-[#ffebd7] text-gray-900 hover:bg-[#fbd3ad] font-bold py-3 rounded-2xl shadow-md border border-[#fbd3ad] transition cursor-pointer text-base"
+            >
+              افزودن ادمین
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+    <!-- ========================================== -->
+    <!-- مودال ویرایش اطلاعات ادمین                  -->
+    <!-- ========================================== -->
+    <div
+      id="edit-admin-modal"
+      class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden"
+    >
+      <div
+        class="bg-white rounded-[28px] w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 sm:p-8 shadow-2xl relative border border-gray-100"
+      >
+        <!-- دکمه بستن -->
+        <button
+          onclick="closeEditAdminModal()"
+          class="text-gray-400 hover:text-gray-600 transition cursor-pointer absolute top-4 left-4"
+        >
+          <svg
+            class="w-6 h-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
+        </button>
+
+        <!-- تیتر مودال -->
+        <h3 class="text-purple1 font-extrabold text-2xl text-center mb-6">
+          ویرایش اطلاعات ادمین
+        </h3>
+
+        <!-- فرم ورودی -->
+        <form
+          id="edit-admin-form"
+          onsubmit="handleEditAdminSubmit(event)"
+          class="space-y-6"
+        >
+          <!-- اطلاعات شخصی -->
+          <div class="bg-gray-50 rounded-2xl p-4 sm:p-6 space-y-4">
+            <h4
+              class="text-black-primary font-bold text-base border-b border-gray-200 pb-2"
+            >
+              اطلاعات شخصی
+            </h4>
+
+            <!-- نام و نام خانوادگی -->
+            <div class="space-y-1.5">
+              <label
+                for="edit-admin-fullname"
+                class="block text-gray-800 font-bold text-sm"
+              >
+                نام و نام خانوادگی <span class="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                id="edit-admin-fullname"
+                placeholder="مثال: مریم احمدی"
+                required
+                class="w-full px-4 py-3 rounded-2xl border border-gray-300 focus:outline-none focus:border-purple1 focus:ring-2 focus:ring-purple1/30 text-right text-gray-700 placeholder:text-gray-300 transition shadow-sm text-sm"
+              />
+            </div>
+
+            <!-- شماره تماس -->
+            <div class="space-y-1.5">
+              <label
+                for="edit-admin-phone"
+                class="block text-gray-800 font-bold text-sm"
+              >
+                شماره تماس <span class="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                id="edit-admin-phone"
+                placeholder="مثال: 09123456789"
+                required
+                class="w-full px-4 py-3 rounded-2xl border border-gray-300 focus:outline-none focus:border-purple1 focus:ring-2 focus:ring-purple1/30 text-right text-gray-700 placeholder:text-gray-300 transition shadow-sm text-sm"
+              />
+            </div>
+
+            <!-- نام کاربری (غیرقابل ویرایش) -->
+            <div class="space-y-1.5">
+              <label
+                for="edit-admin-username"
+                class="block text-gray-800 font-bold text-sm"
+              >
+                نام کاربری
+              </label>
+              <input
+                type="text"
+                id="edit-admin-username"
+                disabled
+                class="w-full px-4 py-3 rounded-2xl border border-gray-200 bg-gray-100 text-gray-500 text-sm cursor-not-allowed text-right"
+              />
+              <span class="text-xs text-gray-400"
+                >نام کاربری قابل تغییر نیست</span
+              >
+            </div>
+          </div>
+
+          <!-- دسترسی‌ها -->
+          <div class="bg-gray-50 rounded-2xl p-4 sm:p-6 space-y-4">
+            <h4
+              class="text-black-primary font-bold text-base border-b border-gray-200 pb-2"
+            >
+              دسترسی‌ها
+            </h4>
+
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <!-- دسترسی داشبورد -->
+              <label
+                class="flex items-center gap-3 cursor-pointer p-3 bg-white rounded-xl border border-gray-200 hover:border-purple1 transition-all"
+              >
+                <input
+                  type="checkbox"
+                  name="admin-permissions"
+                  value="dashboard"
+                  checked
+                  class="w-4 h-4 accent-purple1 cursor-pointer"
+                />
+                <span class="text-sm font-medium text-gray-700">داشبورد</span>
+              </label>
+
+              <!-- دسترسی سفارشات -->
+              <label
+                class="flex items-center gap-3 cursor-pointer p-3 bg-white rounded-xl border border-gray-200 hover:border-purple1 transition-all"
+              >
+                <input
+                  type="checkbox"
+                  name="admin-permissions"
+                  value="orders"
+                  checked
+                  class="w-4 h-4 accent-purple1 cursor-pointer"
+                />
+                <span class="text-sm font-medium text-gray-700">سفارشات</span>
+              </label>
+
+              <!-- دسترسی محصولات -->
+              <label
+                class="flex items-center gap-3 cursor-pointer p-3 bg-white rounded-xl border border-gray-200 hover:border-purple1 transition-all"
+              >
+                <input
+                  type="checkbox"
+                  name="admin-permissions"
+                  value="products"
+                  checked
+                  class="w-4 h-4 accent-purple1 cursor-pointer"
+                />
+                <span class="text-sm font-medium text-gray-700">محصولات</span>
+              </label>
+
+              <!-- دسترسی نظرات مشتری -->
+              <label
+                class="flex items-center gap-3 cursor-pointer p-3 bg-white rounded-xl border border-gray-200 hover:border-purple1 transition-all"
+              >
+                <input
+                  type="checkbox"
+                  name="admin-permissions"
+                  value="reviews"
+                  class="w-4 h-4 accent-purple1 cursor-pointer"
+                />
+                <span class="text-sm font-medium text-gray-700"
+                  >نظرات مشتری</span
+                >
+              </label>
+
+              <!-- دسترسی حسابداری -->
+              <label
+                class="flex items-center gap-3 cursor-pointer p-3 bg-white rounded-xl border border-gray-200 hover:border-purple1 transition-all"
+              >
+                <input
+                  type="checkbox"
+                  name="admin-permissions"
+                  value="accounting"
+                  class="w-4 h-4 accent-purple1 cursor-pointer"
+                />
+                <span class="text-sm font-medium text-gray-700">حسابداری</span>
+              </label>
+
+              <!-- دسترسی تنظیمات -->
+              <label
+                class="flex items-center gap-3 cursor-pointer p-3 bg-white rounded-xl border border-gray-200 hover:border-purple1 transition-all"
+              >
+                <input
+                  type="checkbox"
+                  name="admin-permissions"
+                  value="settings"
+                  class="w-4 h-4 accent-purple1 cursor-pointer"
+                />
+                <span class="text-sm font-medium text-gray-700">تنظیمات</span>
+              </label>
+            </div>
+
+            <div class="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onclick="selectAllPermissions(true)"
+                class="text-sm text-purple1 font-bold hover:underline cursor-pointer"
+              >
+                انتخاب همه
+              </button>
+              <span class="text-gray-300">|</span>
+              <button
+                type="button"
+                onclick="selectAllPermissions(false)"
+                class="text-sm text-gray-500 font-bold hover:text-gray-700 cursor-pointer"
+              >
+                لغو همه
+              </button>
+            </div>
+          </div>
+
+          <!-- وضعیت حساب -->
+          <div class="bg-gray-50 rounded-2xl p-4 sm:p-6 space-y-4">
+            <h4
+              class="text-black-primary font-bold text-base border-b border-gray-200 pb-2"
+            >
+              وضعیت حساب
+            </h4>
+
+            <div class="flex items-center gap-8 justify-end">
+              <label
+                class="flex items-center gap-2 cursor-pointer text-sm font-bold text-black-primary"
+              >
+                <span>فعال</span>
+                <input
+                  type="radio"
+                  name="edit-admin-status"
+                  value="فعال"
+                  checked
+                  class="w-4 h-4 accent-purple1 cursor-pointer"
+                />
+              </label>
+              <label
+                class="flex items-center gap-2 cursor-pointer text-sm font-bold text-black-primary"
+              >
+                <span>غیرفعال</span>
+                <input
+                  type="radio"
+                  name="edit-admin-status"
+                  value="غیرفعال"
+                  class="w-4 h-4 accent-purple1 cursor-pointer"
+                />
+              </label>
+            </div>
+          </div>
+
+          <!-- دکمه‌های عملیات -->
+          <div class="flex flex-col sm:flex-row gap-3 pt-2">
+            <button
+              type="button"
+              onclick="closeEditAdminModal()"
+              class="flex-1 bg-gray-100 text-gray-700 hover:bg-gray-200 font-bold py-3 rounded-2xl transition cursor-pointer text-base"
+            >
+              انصراف
+            </button>
+            <button
+              type="submit"
+              class="flex-1 bg-[#ffebd7] text-gray-900 hover:bg-[#fbd3ad] font-bold py-3 rounded-2xl shadow-md border border-[#fbd3ad] transition cursor-pointer text-base"
+            >
+              ذخیره تغییرات
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+    <!-- ========================================== -->
+    <!-- مودال تأیید خروج                    -->
+    <!-- ========================================== -->
+    <div
+      id="logout-modal"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 hidden opacity-0 transition-opacity duration-300"
+    >
+      <div
+        class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl transform scale-95 transition-transform duration-300 mx-4"
+      >
+        <div class="text-center space-y-4">
+          <!-- آیکون علامت سوال/هشدار -->
+          <div
+            class="w-12 h-12 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto"
+          >
+            <svg
+              class="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+              />
+            </svg>
+          </div>
+
+          <h3 class="text-lg font-bold text-gray-800">خروج از پنل مدیریت</h3>
+          <p class="text-sm text-gray-500">
+            آیا می‌خواهید از پنل ادمین خارج شوید؟
+          </p>
+
+          <!-- دکمه‌های عملیات -->
+          <div class="flex items-center justify-center gap-3 pt-2">
+            <button
+              id="confirm-logout-btn"
+              class="flex-1 bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded-xl transition-colors"
+            >
+              بله
+            </button>
+            <button
+              id="cancel-logout-btn"
+              class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 px-4 rounded-xl transition-colors"
+            >
+              خیر
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="../assets/script/admin/dashboard.js"></script>
+    <script type="module" src="../assets/script/admin/orders.js"></script>
+    <script type="module" src="../assets/script/admin/products.js"></script>
+    <script type="module" src="../assets/script/admin/reviews.js"></script>
+    <script type="module" src="../assets/script/admin/accounting.js"></script>
+    <script type="module" src="../assets/script/admin/settings.js"></script>
+    <script type="module" src="../assets/script/admin/exit.js"></script>
+    <script type="module" src="../assets/script/admin/adminSidbar.js"></script>
+    <!-- <script src="../assets/script/app.js"></script> -->
+  </body>
+</html>
