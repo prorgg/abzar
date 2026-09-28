@@ -41,69 +41,54 @@
         <div class="panel-layout contents max-lg:block">
 
             <!-- منوی سمت راست (سایدبار) -->
-            <aside class="panel-sidebar [grid-area:sidebar] sticky top-0 flex h-screen min-h-screen flex-col bg-purple1 px-4.5 py-5.5 text-yasi transition-transform duration-300 translate-x-full lg:translate-x-0 max-lg:fixed max-lg:right-0 max-lg:z-50 max-lg:h-dvh max-lg:min-h-dvh max-lg:w-[min(256px,calc(100vw-48px))] max-lg:overflow-y-auto max-lg:rounded-l-2xl max-lg:p-6"
+            <aside class="panel-sidebar [grid-area:sidebar] sticky top-0 flex h-screen min-h-screen flex-col bg-purple1 px-4.5 py-5.5 text-yasi transition-transform duration-300 translate-x-full rounded-tl-2xl rounded-bl-2xl lg:translate-x-0 max-lg:fixed max-lg:right-0 max-lg:z-50 max-lg:h-dvh max-lg:min-h-dvh max-lg:w-[min(256px,calc(100vw-48px))] max-lg:overflow-y-auto  max-lg:p-6"
                 id="userPanelSidebar" aria-label="منوی حساب کاربری">
 
-                <div class="panel-sidebar-top mb-5 flex min-h-9 items-center justify-between max-lg:mb-4.25">
-                    <p class="panel-sidebar-title m-0 text-sm font-extrabold text-yasi">ناحیه کاربری</p>
-                </div>
-
-                <button id="backToPreviousPage" type="button"
-                    class="panel-back mb-4 flex w-full items-center justify-center gap-2 rounded-lg border border-white/25 bg-white/10 px-4 py-3 text-sm font-bold text-white transition-all hover:border-white/45 hover:bg-white/20 hover:text-white">
-                    <svg class="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
-                    </svg>
-                    <span>بازگشت به صفحه قبل</span>
-                </button>
-
-                <!-- دکمه‌های جابه‌جایی بین بخش‌ها -->
-                <nav class="panel-nav grid gap-2" id="tabButtons" aria-label="بخش‌های حساب کاربری">
-                    <button data-tab="account"
-                        class="tab-btn account-tab relative flex h-14 min-h-14 w-full items-center gap-3 rounded-lg border-s-0.75 border-purple1 px-4 py-2 text-right text-sm font-bold bg-white text-black-primary transition-all">
-                        <svg class="size-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                        </svg>
-                        <span class="account-tab-copy grid min-w-0 flex-1 gap-0.75">
-                            <span>حساب کاربری من</span>
-                            <span class="menu-profile-progress block w-full" data-profile-progress role="progressbar"
-                                aria-label="درصد تکمیل پروفایل در منو" aria-valuemin="0" aria-valuemax="100"
-                                aria-valuenow="0">
-                                <span class="menu-profile-progress-track block h-0.75 w-full overflow-hidden rounded-full bg-yasi/25"><span class="profile-progress-bar block h-full w-0 rounded-full bg-purple1 transition-[width] duration-300"
-                                        data-profile-completion-bar></span></span>
-                            </span>
-                        </span>
-                    </button>
-
-                    <button data-tab="orders"
-                        class="tab-btn flex h-14 min-h-14 w-full items-center gap-3 rounded-lg border-s-0 px-4 py-2 text-right text-sm font-medium text-yasi/90 hover:bg-yasi/10 hover:text-yasi transition-all">
-                        <svg class="size-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                        </svg>
-                        <span>سفارش‌های من</span>
-                    </button>
-
-                    <button data-tab="favorites"
-                        class="tab-btn flex h-14 min-h-14 w-full items-center gap-3 rounded-lg border-s-0 px-4 py-2 text-right text-sm font-medium text-yasi/90 hover:bg-yasi/10 hover:text-yasi transition-all">
-                        <svg class="size-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                        </svg>
-                        <span>علاقه‌مندی‌ها</span>
-                    </button>
-
-                    <div class="logout-wrap pt-2 border-t border-gray-primary/30 mt-2">
-                        <button id="logoutBtn" type="button"
-                            class="flex w-full items-center gap-3 rounded-lg border border-red-200/20 bg-red-950/20 px-4 py-3 text-sm font-medium text-red-50 transition-all hover:border-red-100/35 hover:bg-red-950/35 hover:text-white">
-                            <svg class="size-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div class="space-y-8">
+                    <!-- لوگو و دکمه بستن در موبایل -->
+                    <div class="flex items-center justify-between pt-2">
+                        <h2 class="text-3xl font-extrabold tracking-wide text-center w-full lg:w-auto text-white">
+                            لوگو
+                        </h2>
+                        <button id="closeUserPanelMenu" type="button" class="lg:hidden text-white/80 hover:text-white"
+                            aria-label="بستن منو">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                    d="M6 18L18 6M6 6l12 12" />
                             </svg>
-                            <span>خروج از حساب</span>
                         </button>
                     </div>
-                </nav>
+
+                    <!-- منوهای ناوبری -->
+                    <nav class="space-y-2" id="tabButtons" aria-label="بخش‌های حساب کاربری">
+                        <button data-tab="account" type="button"
+                            class="tab-btn flex w-full flex-col items-stretch justify-center py-3 px-4 bg-white text-black-primary rounded-xl font-bold text-right transition-all">
+                            <span>حساب کاربری من</span>
+                            <span class="menu-profile-progress mt-2 block w-full" data-profile-progress
+                                role="progressbar" aria-label="درصد تکمیل پروفایل در منو" aria-valuemin="0"
+                                aria-valuemax="100" aria-valuenow="0">
+                                <span
+                                    class="menu-profile-progress-track block h-0.75 w-full overflow-hidden rounded-full bg-purple1/20"><span
+                                        class="profile-progress-bar block h-full w-0 rounded-full bg-purple1 transition-[width] duration-300"
+                                        data-profile-completion-bar></span></span>
+                            </span>
+                        </button>
+
+                        <button data-tab="orders" type="button"
+                            class="tab-btn flex w-full items-center justify-start py-3 px-4 font-semibold text-white/90 hover:bg-white/10 rounded-xl text-right transition-all">سفارش‌های
+                            من</button>
+
+                        <button data-tab="favorites" type="button"
+                            class="tab-btn flex w-full items-center justify-start py-3 px-4 font-semibold text-white/90 hover:bg-white/10 rounded-xl text-right transition-all">علاقه‌مندی‌ها</button>
+
+                        <button id="backToPreviousPage" type="button"
+                            class="flex w-full items-center justify-start py-3 px-4 font-semibold text-white/90 hover:bg-white/10 rounded-xl text-right transition-all">بازگشت
+                            به صفحه قبل</button>
+
+                        <button id="logoutBtn" type="button"
+                            class="flex w-full items-center justify-start py-3 px-4 font-semibold text-white/90 hover:bg-white/10 rounded-xl text-right transition-all">خروج</button>
+                    </nav>
+                </div>
             </aside>
 
             <!-- محتوای اصلی بخش‌ها -->
@@ -111,13 +96,6 @@
 
                 <!-- 1. حساب کاربری من -->
                 <div id="accountContent" class="tab-content">
-                    <div class="section-heading mb-6 flex items-end justify-between gap-4.5 border-b border-gray-primary/30 pb-4.25 max-[560px]:items-start">
-                        <div>
-                            <h2 class="m-0 text-xl font-bold text-black-primary">اطلاعات حساب کاربری</h2>
-                            <p class="m-0 mt-1.5 text-xs text-gray-main">اطلاعات تماس و نشانی خود را مدیریت کنید.</p>
-                        </div>
-                        <span class="section-heading-mark whitespace-nowrap text-[11px] text-gray-main max-[560px]:hidden">حساب من / اطلاعات شخصی</span>
-                    </div>
 
                     <div class="profile-card mb-6 grid grid-cols-[48px_minmax(0,1fr)_minmax(190px,.7fr)] items-center gap-4 rounded-lg border border-gray-primary/30 bg-yasi/30 p-4.5 max-[700px]:grid-cols-[48px_minmax(0,1fr)]">
                         <div class="profile-avatar grid size-12 shrink-0 place-items-center rounded-lg border-2 border-yasi bg-yasi text-xl text-purple1 shadow-md font-bold"><span class="userInitial">ی</span></div>
@@ -234,12 +212,12 @@
 
                 <!-- 2. سفارش‌های من -->
                 <div id="ordersContent" class="tab-content hidden">
-                    <div class="section-heading">
+                    <div class="mb-6 flex flex-wrap items-end justify-between gap-3 border-b border-gray-primary/30 pb-4">
                         <div>
-                            <h2>سفارش‌های من</h2>
-                            <p>سفارش‌های ثبت‌شده و وضعیت ارسال آن‌ها.</p>
+                            <h2 class="m-0 text-xl font-bold text-black-primary">سفارش‌های من</h2>
+                            <p class="mt-1 text-[13px] text-gray-main">سفارش‌های ثبت‌شده و وضعیت ارسال آن‌ها.</p>
                         </div>
-                        <span class="section-heading-mark">خریدهای شما</span>
+                        <span class="rounded-lg bg-yasi px-3 py-1.5 text-xs font-bold text-purple1">خریدهای شما</span>
                     </div>
                     <div id="ordersList" class="space-y-4">
                         <div class="text-center py-8 text-gray-main">در حال بارگذاری سفارش‌ها...</div>
@@ -248,12 +226,12 @@
 
                 <!-- 3. علاقه‌مندی‌ها -->
                 <div id="favoritesContent" class="tab-content hidden">
-                    <div class="section-heading">
+                    <div class="mb-6 flex flex-wrap items-end justify-between gap-3 border-b border-gray-primary/30 pb-4">
                         <div>
-                            <h2>علاقه‌مندی‌های من</h2>
-                            <p>محصولاتی که برای بعد نگه داشته‌اید.</p>
+                            <h2 class="m-0 text-xl font-bold text-black-primary">علاقه‌مندی‌های من</h2>
+                            <p class="mt-1 text-[13px] text-gray-main">محصولاتی که برای بعد نگه داشته‌اید.</p>
                         </div>
-                        <span class="section-heading-mark">انتخاب‌های شما</span>
+                        <span class="rounded-lg bg-yasi px-3 py-1.5 text-xs font-bold text-purple1">انتخاب‌های شما</span>
                     </div>
                     <div id="favoritesList" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     </div>

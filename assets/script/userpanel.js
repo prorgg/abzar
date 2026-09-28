@@ -248,6 +248,12 @@ document.addEventListener("DOMContentLoaded", () => {
   userPanelOverlay?.addEventListener("click", () =>
     setUserPanelMenuOpen(false),
   );
+  document
+    .getElementById("closeUserPanelMenu")
+    ?.addEventListener("click", () => {
+      setUserPanelMenuOpen(false);
+      openUserPanelMenuButton?.focus();
+    });
   document.addEventListener("keydown", (event) => {
     if (
       event.key === "Escape" &&
@@ -286,11 +292,11 @@ document.addEventListener("DOMContentLoaded", () => {
         setUserPanelMenuOpen(false);
       }
       tabButtons.forEach((tabButton) => {
-        tabButton.classList.remove("bg-yasi", "text-purple1", "font-bold");
-        tabButton.classList.add("text-gray-main", "font-medium");
+        tabButton.classList.remove("bg-white", "text-black-primary", "font-bold");
+        tabButton.classList.add("text-white/90", "font-semibold");
       });
-      button.classList.add("bg-yasi", "text-purple1", "font-bold");
-      button.classList.remove("text-gray-main", "font-medium");
+      button.classList.add("bg-white", "text-black-primary", "font-bold");
+      button.classList.remove("text-white/90", "font-semibold");
 
       tabContents.forEach((content) => {
         content.classList.toggle(
@@ -672,13 +678,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (!orders.length) {
         ordersListEl.innerHTML = `
-          <div class="orders-empty">
-            <span class="orders-empty-icon" aria-hidden="true">
-              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l2.2 11.2a2 2 0 0 0 2 1.6h7.6a2 2 0 0 0 1.9-1.4L21 8H6M10 21h.01M17 21h.01" /></svg>
+          <div class="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-gray-primary/40 bg-yasi/20 px-6 py-12 text-center">
+            <span class="grid size-14 place-items-center rounded-full bg-yasi text-purple1" aria-hidden="true">
+              <svg class="size-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l2.2 11.2a2 2 0 0 0 2 1.6h7.6a2 2 0 0 0 1.9-1.4L21 8H6M10 21h.01M17 21h.01" /></svg>
             </span>
-            <h3>هنوز سفارشی ثبت نکرده‌اید</h3>
-            <p>محصول موردنیازتان را پیدا کنید؛ جزئیات خرید و وضعیت سفارش‌ها در همین بخش نمایش داده می‌شود.</p>
-            <a href="../products/index.html">رفتن به فروشگاه</a>
+            <h3 class="text-base font-bold text-black-primary">هنوز سفارشی ثبت نکرده‌اید</h3>
+            <p class="max-w-md text-sm text-gray-main">محصول موردنیازتان را پیدا کنید؛ جزئیات خرید و وضعیت سفارش‌ها در همین بخش نمایش داده می‌شود.</p>
+            <a href="../products/index.html" class="mt-2 rounded-xl bg-purple1 px-5 py-2.5 text-sm font-bold text-white transition-opacity hover:opacity-90">رفتن به فروشگاه</a>
           </div>
         `;
         return;
@@ -709,33 +715,30 @@ document.addEventListener("DOMContentLoaded", () => {
                 : "bg-blue-100 text-blue-800";
 
           return `
-            <article class="order-card">
-              <div class="order-card-head">
-                <div class="order-code-wrap">
-                  <span class="order-symbol" aria-hidden="true">
-                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7"><path stroke-linecap="round" stroke-linejoin="round" d="M6 3h9l4 4v14H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M14 3v5h5M8 13h8M8 17h8"/></svg>
+            <article class="rounded-2xl border border-gray-primary/30 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
+              <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-primary/20 pb-4">
+                <div class="flex min-w-0 items-center gap-3">
+                  <span class="grid size-10 shrink-0 place-items-center rounded-xl bg-yasi text-purple1" aria-hidden="true">
+                    <svg class="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7"><path stroke-linecap="round" stroke-linejoin="round" d="M6 3h9l4 4v14H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M14 3v5h5M8 13h8M8 17h8"/></svg>
                   </span>
                   <span class="min-w-0">
-                    <span class="order-eyebrow">کد پیگیری</span>
-                    <strong class="order-code">${escapeHtml(orderCode)}</strong>
+                    <span class="block text-[11px] text-gray-main">کد پیگیری</span>
+                    <strong class="block truncate text-sm font-bold text-black-primary">${escapeHtml(orderCode)}</strong>
                   </span>
                 </div>
-                <span class="order-status ${statusClass}"><span class="order-status-dot" aria-hidden="true"></span>${escapeHtml(statusText)}</span>
+                <span class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${statusClass}"><span class="size-1.5 rounded-full bg-current" aria-hidden="true"></span>${escapeHtml(statusText)}</span>
               </div>
-              <div class="order-details">
-                <div><span class="order-detail-label">تاریخ ثبت</span><strong class="order-detail-value">${escapeHtml(orderDate)}</strong></div>
-                <div><span class="order-detail-label">مبلغ سفارش</span><strong class="order-detail-value order-total">${orderTotal.toLocaleString("en-US")} تومان</strong></div>
+              <div class="grid grid-cols-2 gap-4 py-4">
+                <div><span class="block text-[11px] text-gray-main">تاریخ ثبت</span><strong class="mt-1 block text-sm font-bold text-black-primary">${escapeHtml(orderDate)}</strong></div>
+                <div><span class="block text-[11px] text-gray-main">مبلغ سفارش</span><strong class="mt-1 block text-sm font-bold text-purple1">${orderTotal.toLocaleString("en-US")} تومان</strong></div>
               </div>
-              <div class="order-card-footer">
-                <span class="order-caption">جزئیات سفارش</span>
-                <div class="order-actions">
-                  <button data-order-id="${escapeHtml(order.id)}" class="view-invoice-btn bg-purple1 text-white font-bold hover:opacity-90 transition-opacity">
-                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M7 3h7l5 5v13H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M14 3v5h5M9 13h6M9 17h6"/></svg>
-                    مشاهده فاکتور
-                  </button>
-                  ${isUnpaidOrder(order) ? `<button data-order-id="${escapeHtml(order.id)}" class="restore-order-btn border border-purple1/40 text-purple1 font-bold hover:bg-yasi transition-colors"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h11a6 6 0 1 1-5.2 9M3 10l4-4m-4 4 4 4"/></svg>بازگردانی به سبد</button>` : ""}
-                  <button data-order-id="${escapeHtml(order.id)}" class="delete-order-btn border border-gray-primary/50 text-gray-main font-bold hover:bg-yasi transition-colors"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M10 11v6m4-6v6M6 7l1 14h10l1-14M9 7V4h6v3"/></svg>حذف سفارش</button>
-                </div>
+              <div class="flex flex-wrap items-center justify-end gap-2 border-t border-gray-primary/20 pt-4">
+                <button data-order-id="${escapeHtml(order.id)}" class="view-invoice-btn inline-flex items-center gap-1.5 rounded-xl bg-purple1 px-4 py-2 text-xs font-bold text-white transition-opacity hover:opacity-90">
+                  <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M7 3h7l5 5v13H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M14 3v5h5M9 13h6M9 17h6"/></svg>
+                  مشاهده فاکتور
+                </button>
+                ${isUnpaidOrder(order) ? `<button data-order-id="${escapeHtml(order.id)}" class="restore-order-btn inline-flex items-center gap-1.5 rounded-xl border border-purple1/40 px-4 py-2 text-xs font-bold text-purple1 transition-colors hover:bg-yasi"><svg class="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h11a6 6 0 1 1-5.2 9M3 10l4-4m-4 4 4 4"/></svg>بازگردانی به سبد</button>` : ""}
+                <button data-order-id="${escapeHtml(order.id)}" class="delete-order-btn inline-flex items-center gap-1.5 rounded-xl border border-gray-primary/50 px-4 py-2 text-xs font-bold text-gray-main transition-colors hover:bg-yasi"><svg class="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M10 11v6m4-6v6M6 7l1 14h10l1-14M9 7V4h6v3"/></svg>حذف سفارش</button>
               </div>
             </article>
           `;
