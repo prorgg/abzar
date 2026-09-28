@@ -1,16 +1,90 @@
-import { adminUsersList } from "../data.js";
-import { registeredUsers } from "../data.js";
-document.addEventListener("DOMContentLoaded", () => {
-  // 6. مدیریت بخش تنظیمات حساب ادمین (Admin Settings & Profile)
+import { fetchWithAuth } from "../data.js";
+
+document.addEventListener("DOMContentLoaded", async () => {
   // ==========================================================================
-  adminUsersList;
-  registeredUsers;
-  // متغیر جلسه فعلی ادمین
+  // مدیریت بخش تنظیمات حساب ادمین (Admin Settings & Profile)
+  // ==========================================================================
+    if (
+      typeof window.hasAdminPermission === "function" &&
+      !window.hasAdminPermission("settings")
+    ) {
+      return;
+    }
+
   let currentLoggedInAdmin = null;
-
+  let adminUsersList = [];
   let editingAdminId = null;
+  let currentEditingAdminId = null;
 
-  // ۱. مدیریت سوییچ تب‌ها
+  function normalizeAdminRecord(admin = {}) {
+    const id = admin.id ?? admin.admin_id ?? admin.user_id ?? admin._id ?? null;
+    const name =
+      admin.name ||
+      admin.full_name ||
+      admin.fullName ||
+      admin.display_name ||
+      "بدون نام";
+    const mobile =
+      admin.mobile ||
+      admin.phone ||
+      admin.phone_number ||
+      admin.contact_mobile ||
+      "";
+    const email =
+      admin.email || admin.username || admin.user_name || admin.login || "";
+    const username = admin.username || admin.user_name || admin.email || "";
+    const isActive =
+      admin.is_active !== undefined
+        ? Boolean(admin.is_active)
+        : admin.status !== "غیرفعال" && admin.status !== "inactive";
+    const permissions = Array.isArray(admin.permissions)
+      ? admin.permissions
+      : Array.isArray(admin.permission)
+        ? admin.permission
+        : [];
+
+    return {
+      ...admin,
+      id,
+      name,
+      fullName: name,
+      mobile,
+      phone: mobile,
+      email,
+      username,
+      user_name: username,
+      is_active: isActive,
+      status: isActive ? "فعال" : "غیرفعال",
+      permissions,
+      permission: permissions,
+    };
+  }
+
+  function extractAdminListPayload(res) {
+    if (Array.isArray(res)) return res.map(normalizeAdminRecord);
+    if (Array.isArray(res?.data)) return res.data.map(normalizeAdminRecord);
+    if (Array.isArray(res?.admins)) return res.admins.map(normalizeAdminRecord);
+    if (Array.isArray(res?.admin_users))
+      return res.admin_users.map(normalizeAdminRecord);
+    if (Array.isArray(res?.users)) return res.users.map(normalizeAdminRecord);
+    if (res && typeof res === "object") {
+      const maybeList = [
+        res.data,
+        res.admins,
+        res.admin_users,
+        res.users,
+        res.result,
+      ].find(Array.isArray);
+      if (maybeList) return maybeList.map(normalizeAdminRecord);
+    }
+    return [];
+  }
+
+  // وضعیت صفحه‌بندی (Pagination)
+  let currentPage = 1;
+  const itemsPerPage = 5;
+
+  // 1. مدیریت سوییچ تب‌ها
   const tabButtons = document.querySelectorAll(".tab-btn");
   const tabContents = document.querySelectorAll(".tab-content");
 
@@ -35,84 +109,81 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // ۲. مقداردهی اولیه اینپوت‌های فرم از روی داده‌های ادمین لاگین شده
-  function loadAdminProfileData() {
-    if (currentLoggedInAdmin) {
-      const adminInfo = currentLoggedInAdmin;
+  // 2. دریافت و بارگذاری پروفایل ادمین فعلی از API
+  async function loadAdminProfileData() {
+    try {
+      const res = await fetchWithAuth("/admin-users?profile=true");
+      const profileData =
+        res?.data || res?.user || res?.profile || res?.admin || res || {};
 
-      const fullNameEl = document.getElementById("admin-fullName");
-      const phoneEl = document.getElementById("admin-phone");
-      const instagramEl = document.getElementById("admin-instagram");
-      const telegramEl = document.getElementById("admin-telegram");
-      const rubikaEl = document.getElementById("admin-rubika");
-      const whatsappEl = document.getElementById("admin-whatsapp");
-      const addressEl = document.getElementById("admin-address");
+      if (profileData && typeof profileData === "object") {
+        currentLoggedInAdmin = profileData;
 
-      if (fullNameEl) fullNameEl.value = adminInfo.fullName || "";
-      if (phoneEl) phoneEl.value = adminInfo.phone || "";
-      if (instagramEl) instagramEl.value = adminInfo.instagram || "";
-      if (telegramEl) telegramEl.value = adminInfo.telegram || "";
-      if (rubikaEl) rubikaEl.value = adminInfo.rubika || "";
-      if (whatsappEl) whatsappEl.value = adminInfo.whatsapp || "";
-      if (addressEl) addressEl.value = adminInfo.address || "";
+        const fullNameEl = document.getElementById("admin-fullName");
+        const phoneEl = document.getElementById("admin-phone");
+        const instagramEl = document.getElementById("admin-instagram");
+        const telegramEl = document.getElementById("admin-telegram");
+        const rubikaEl = document.getElementById("admin-rubika");
+        const whatsappEl = document.getElementById("admin-whatsapp");
+        const addressEl = document.getElementById("admin-address");
+
+        if (fullNameEl)
+          fullNameEl.value =
+            profileData.name ||
+            profileData.full_name ||
+            profileData.fullName ||
+            "";
+        if (phoneEl)
+          phoneEl.value =
+            profileData.mobile ||
+            profileData.phone ||
+            profileData.phone_number ||
+            "";
+        if (instagramEl) instagramEl.value = profileData.instagram || "";
+        if (telegramEl) telegramEl.value = profileData.telegram || "";
+        if (rubikaEl) rubikaEl.value = profileData.rubika || "";
+        if (whatsappEl) whatsappEl.value = profileData.whatsapp || "";
+        if (addressEl) addressEl.value = profileData.address || "";
+      }
+    } catch (err) {
+      console.error("خطا در دریافت اطلاعات پروفایل:", err.message);
     }
   }
 
-  // ۳. ثبت و ذخیره تغییرات فرم
+  // 3. ثبت و ذخیره تغییرات فرم پروفایل
   const adminProfileForm = document.getElementById("admin-profile-form");
 
-  adminProfileForm?.addEventListener("submit", (e) => {
+  adminProfileForm?.addEventListener("submit", async (e) => {
     e.preventDefault();
 
-    if (!currentLoggedInAdmin) {
-      return;
-    }
-
-    const updatedData = {
-      fullName: document.getElementById("admin-fullName").value.trim(),
-      phone: document.getElementById("admin-phone").value.trim(),
-      instagram: document.getElementById("admin-instagram").value.trim(),
-      telegram: document.getElementById("admin-telegram").value.trim(),
-      rubika: document.getElementById("admin-rubika").value.trim(),
-      whatsapp: document.getElementById("admin-whatsapp").value.trim(),
-      address: document.getElementById("admin-address").value.trim(),
-      username: currentLoggedInAdmin.username,
-      password: currentLoggedInAdmin.password,
-      permissions: currentLoggedInAdmin.permissions,
-      status: currentLoggedInAdmin.status,
+    const payload = {
+      name: document.getElementById("admin-fullName")?.value.trim(),
+      mobile: document.getElementById("admin-phone")?.value.trim(),
+      email: currentLoggedInAdmin?.email || "",
+      instagram: document.getElementById("admin-instagram")?.value.trim(),
+      telegram: document.getElementById("admin-telegram")?.value.trim(),
+      rubika: document.getElementById("admin-rubika")?.value.trim(),
+      whatsapp: document.getElementById("admin-whatsapp")?.value.trim(),
+      address: document.getElementById("admin-address")?.value.trim(),
     };
 
-    // به‌روزرسانی در لیست ادمین‌ها
-    const index = adminUsersList.findIndex(
-      (a) => a.username === updatedData.username,
-    );
-    if (index !== -1) {
-      adminUsersList[index] = {
-        ...adminUsersList[index],
-        fullName: updatedData.fullName,
-        phone: updatedData.phone,
-        instagram: updatedData.instagram,
-        telegram: updatedData.telegram,
-        rubika: updatedData.rubika,
-        whatsapp: updatedData.whatsapp,
-        address: updatedData.address,
-      };
+    try {
+      const res = await fetchWithAuth("/admin-users", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+
+      showPasswordMessage("پروفایل با موفقیت بروزرسانی شد! ✅", "success");
+      await loadAdminProfileData();
+    } catch (err) {
+      showPasswordMessage(err.message || "خطا در بروزرسانی پروفایل", "error");
     }
-
-    // به‌روزرسانی currentLoggedInAdmin
-    currentLoggedInAdmin = updatedData;
-
-    console.log("Updated Admin Profile Data:", updatedData);
   });
-
-  // فراخوانی اولیه برای پر کردن فرم
-  loadAdminProfileData();
 
   // ==========================================================================
   // مدیریت تغییر رمز عبور
   // ==========================================================================
 
-  // 1. نمایش/مخفی کردن رمز عبور
   window.togglePasswordVisibility = function (inputId, button) {
     const input = document.getElementById(inputId);
     if (!input) return;
@@ -135,7 +206,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  // 2. بررسی قدرت رمز عبور
   function checkPasswordStrength(password) {
     let score = 0;
     let level = "ضعیف";
@@ -169,7 +239,6 @@ document.addEventListener("DOMContentLoaded", () => {
     return { level, color, width };
   }
 
-  // 3. اعتبارسنجی رمز عبور جدید
   const newPasswordInput = document.getElementById("new-password");
   const confirmPasswordInput = document.getElementById("confirm-password");
   const strengthBar = document.getElementById("password-strength-bar");
@@ -201,9 +270,7 @@ document.addEventListener("DOMContentLoaded", () => {
     checkPasswordMatch();
   });
 
-  confirmPasswordInput?.addEventListener("input", function () {
-    checkPasswordMatch();
-  });
+  confirmPasswordInput?.addEventListener("input", checkPasswordMatch);
 
   function checkPasswordMatch() {
     const newPass = newPasswordInput?.value || "";
@@ -213,7 +280,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (confirmPass.length === 0) {
       matchMessage.classList.add("hidden");
-      matchMessage.classList.remove("text-emerald-500", "text-red-500");
       return;
     }
 
@@ -228,16 +294,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // 4. ارسال فرم تغییر رمز عبور
   const changePasswordForm = document.getElementById("change-password-form");
   const passwordMessage = document.getElementById("password-message");
 
-  changePasswordForm?.addEventListener("submit", function (e) {
+  changePasswordForm?.addEventListener("submit", async function (e) {
     e.preventDefault();
-
-    if (!currentLoggedInAdmin) {
-      return;
-    }
 
     const currentPassword =
       document.getElementById("current-password")?.value || "";
@@ -245,14 +306,21 @@ document.addEventListener("DOMContentLoaded", () => {
     const confirmPassword =
       document.getElementById("confirm-password")?.value || "";
 
-    // بررسی رمز فعلی
-    if (currentPassword !== currentLoggedInAdmin.password) {
-      showPasswordMessage("رمز عبور فعلی اشتباه است!", "error");
+    if (!currentPassword) {
+      showPasswordMessage("رمز عبور فعلی را وارد کنید!", "error");
       return;
     }
 
-    if (newPassword.length < 6) {
-      showPasswordMessage("رمز عبور جدید باید حداقل 6 کاراکتر باشد!", "error");
+    if (
+      newPassword.length < 8 ||
+      !/[A-Z]/.test(newPassword) ||
+      !/[a-z]/.test(newPassword) ||
+      !/[0-9]/.test(newPassword)
+    ) {
+      showPasswordMessage(
+        "رمز عبور باید حداقل 8 کاراکتر و شامل حروف بزرگ، کوچک و عدد باشد!",
+        "error",
+      );
       return;
     }
 
@@ -266,42 +334,31 @@ document.addEventListener("DOMContentLoaded", () => {
       submitBtn.textContent = "در حال ذخیره‌سازی...";
     }
 
-    setTimeout(() => {
-      // به‌روزرسانی رمز عبور در لیست ادمین‌ها
-      const index = adminUsersList.findIndex(
-        (a) => a.username === currentLoggedInAdmin.username,
-      );
-      if (index !== -1) {
-        adminUsersList[index].password = newPassword;
-      }
-
-      // به‌روزرسانی currentLoggedInAdmin
-      currentLoggedInAdmin.password = newPassword;
+    try {
+      await fetchWithAuth("/admin-users", {
+        method: "POST",
+        body: JSON.stringify({
+          change_password: true,
+          old_password: currentPassword,
+          new_password: newPassword,
+        }),
+      });
 
       showPasswordMessage("رمز عبور با موفقیت تغییر یافت! ✅", "success");
 
       this.reset();
-      if (strengthBar) {
-        strengthBar.style.width = "0%";
-        strengthBar.className =
-          "h-full bg-red-500 transition-all duration-300 rounded-full";
-      }
-      if (strengthText) {
-        strengthText.textContent = "ضعیف";
-        strengthText.className = "text-xs font-medium text-gray-500";
-      }
-      if (matchMessage) {
-        matchMessage.classList.add("hidden");
-      }
-
+      if (strengthBar) strengthBar.style.width = "0%";
+      if (matchMessage) matchMessage.classList.add("hidden");
+    } catch (err) {
+      showPasswordMessage(err.message || "خطا در تغییر رمز عبور!", "error");
+    } finally {
       if (submitBtn) {
         submitBtn.disabled = false;
         submitBtn.textContent = "ذخیره تغییرات";
       }
-    }, 1500);
+    }
   });
 
-  // تابع نمایش پیام (یکبار تعریف شده)
   function showPasswordMessage(text, type) {
     if (!passwordMessage) return;
 
@@ -318,10 +375,60 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 5000);
   }
 
-  // 8. مدیریت دسترسی ادمین‌ها (Admin Access)
+  // ==========================================================================
+  // مدیریت دسترسی ادمین‌ها (Admin Access List)
   // ==========================================================================
 
-  // رندر لیست ادمین‌ها
+  async function fetchAdminUsers() {
+    try {
+      let storedPermissions = {};
+      try {
+        storedPermissions = JSON.parse(
+          localStorage.getItem("admin_permissions_cache") || "{}",
+        );
+      } catch {
+        storedPermissions = {};
+      }
+      const previousPermissions = new Map(
+        adminUsersList
+          .filter((admin) => Array.isArray(admin.permissions))
+          .map((admin) => [Number(admin.id), admin.permissions]),
+      );
+      const res = await fetchWithAuth("/admin-users");
+      adminUsersList = extractAdminListPayload(res);
+      adminUsersList = adminUsersList.map((admin) => {
+        if (
+          !Array.isArray(admin.permissions) ||
+          admin.permissions.length === 0
+        ) {
+          const savedPermissions =
+            previousPermissions.get(Number(admin.id)) ||
+            storedPermissions[String(admin.id)];
+          if (savedPermissions) {
+            return {
+              ...admin,
+              permissions: savedPermissions,
+              permission: savedPermissions,
+            };
+          }
+        }
+        return admin;
+      });
+      if (adminUsersList.length === 0 && res && typeof res === "object") {
+        const singleAdmin = normalizeAdminRecord(res);
+        if (singleAdmin.id || singleAdmin.name || singleAdmin.email) {
+          adminUsersList = [singleAdmin];
+        }
+      }
+      currentPage = 1;
+      renderAdminUsers();
+    } catch (err) {
+      console.error("خطا در دریافت لیست ادمین‌ها:", err.message);
+      adminUsersList = [];
+      renderAdminUsers();
+    }
+  }
+
   function renderAdminUsers() {
     const container = document.getElementById("admin-users-list");
     const countText = document.getElementById("admin-count");
@@ -337,49 +444,64 @@ document.addEventListener("DOMContentLoaded", () => {
         <p>هیچ ادمینی یافت نشد</p>
       </div>
     `;
-      if (countText) countText.textContent = "نمایش ۰ از ۰ ادمین";
+      if (countText) countText.textContent = "نمایش 0 از 0 ادمین";
+      renderPaginationControls(0);
       return;
     }
 
-    container.innerHTML = adminUsersList
-      .map(
-        (admin) => `
-    <div class="grid grid-cols-12 gap-2 text-center items-center py-3.5 px-4 hover:bg-gray-50/50 transition-colors whitespace-nowrap">
-      
-      <!-- نام -->
+    const totalPages = Math.ceil(adminUsersList.length / itemsPerPage);
+    if (currentPage > totalPages) currentPage = totalPages;
+    if (currentPage < 1) currentPage = 1;
+
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const currentItems = adminUsersList.slice(startIndex, endIndex);
+
+    container.innerHTML = currentItems
+      .map((admin) => {
+        const normalizedAdmin = normalizeAdminRecord(admin);
+        const adminName = normalizedAdmin.name || "بدون نام";
+        const adminPhone =
+          normalizedAdmin.mobile || normalizedAdmin.phone || "—";
+        const activeLabel = normalizedAdmin.is_active ? "فعال" : "غیرفعال";
+        const activeClass = normalizedAdmin.is_active
+          ? "bg-emerald-100 text-emerald-700 border-emerald-200"
+          : "bg-red-100 text-red-700 border-red-200";
+        const permissionLabels = normalizedAdmin.permissions.length
+          ? normalizedAdmin.permissions.join("، ")
+          : "ثبت نشده";
+
+        return `
+    <div class="grid grid-cols-12 gap-2 text-center items-center py-3.5 px-4 hover:bg-gray-50/50 transition-colors whitespace-nowrap border-b border-gray-100 last:border-0">
       <div class="col-span-3 text-right pr-2 font-bold text-black-primary text-sm truncate">
-        ${admin.fullName}
+        ${adminName}
       </div>
 
-      <!-- شماره تماس -->
       <div class="col-span-3 text-gray-700 text-sm font-medium dir-ltr">
-        ${admin.phone}
+        ${adminPhone}
       </div>
 
-      <!-- وضعیت -->
       <div class="col-span-2">
-        <span class="${admin.status === "فعال" ? "bg-emerald-100 text-emerald-700 border-emerald-200" : "bg-red-100 text-red-700 border-red-200"} px-3 py-1 rounded-full text-xs font-bold border inline-block">
-          ${admin.status || "فعال"}
+        <span class="${activeClass} px-3 py-1 rounded-full text-xs font-bold border inline-block">
+          ${activeLabel}
         </span>
       </div>
 
-      <!-- آخرین فعالیت -->
-      <div class="col-span-1 text-gray-500 text-xs truncate">
-        ${admin.lastActivity || "—"}
+      <div class="col-span-1 text-gray-500 text-xs truncate" title="${permissionLabels}">
+        ${permissionLabels}
       </div>
 
-      <!-- عملیات (بدون شکستن خط) -->
       <div class="col-span-3 flex items-center justify-center gap-2 flex-nowrap">
-        <button onclick="openEditAdminModal(${admin.id})" 
-                class="bg-yasi text-black-primary text-xs font-bold px-3 py-1.5 rounded-lg hover:brightness-95 transition flex items-center gap-1 cursor-pointer shrink-0">
+        <button data-admin-id="${normalizedAdmin.id ?? ""}" data-action="edit-admin" 
+                class="js-edit-admin-btn bg-yasi text-black-primary text-xs font-bold px-3 py-1.5 rounded-lg hover:brightness-95 transition flex items-center gap-1 cursor-pointer shrink-0">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
           </svg>
           <span class="whitespace-nowrap">ویرایش اطلاعات</span>
         </button>
-        
-        <button onclick="deleteAdmin(${admin.id})" 
-                class="text-rose-500 hover:text-rose-700 transition cursor-pointer p-1.5 rounded-lg hover:bg-rose-50 shrink-0" 
+
+        <button data-admin-id="${normalizedAdmin.id ?? ""}" data-action="delete-admin" 
+                class="js-delete-admin-btn text-rose-500 hover:text-rose-700 transition cursor-pointer p-1.5 rounded-lg hover:bg-rose-50 shrink-0" 
                 title="حذف">
           <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="3 6 5 6 21 6"></polyline>
@@ -389,16 +511,71 @@ document.addEventListener("DOMContentLoaded", () => {
           </svg>
         </button>
       </div>
-
-    </div>
-  `,
-      )
+    </div>`;
+      })
       .join("");
 
     if (countText) {
-      countText.textContent = `نمایش ${adminUsersList.length} از ${adminUsersList.length} ادمین`;
+      countText.textContent = `نمایش ${startIndex + 1} تا ${Math.min(endIndex, adminUsersList.length)} از ${adminUsersList.length} ادمین`;
     }
+
+    renderPaginationControls(totalPages);
   }
+
+  // رندر دکمه‌های صفحه‌بندی
+  function renderPaginationControls(totalPages) {
+    let paginationContainer = document.getElementById("admin-pagination");
+
+    if (!paginationContainer) {
+      paginationContainer = document.createElement("div");
+      paginationContainer.id = "admin-pagination";
+      paginationContainer.className =
+        "flex items-center justify-center gap-2 mt-4 dir-rtl";
+      const parent = document.getElementById("admin-users-list")?.parentElement;
+      if (parent) parent.appendChild(paginationContainer);
+    }
+
+    if (totalPages <= 1) {
+      paginationContainer.innerHTML = "";
+      return;
+    }
+
+    let buttonsHTML = `
+      <button onclick="changeAdminPage(${currentPage - 1})" 
+              ${currentPage === 1 ? "disabled" : ""} 
+              class="px-3 py-1.5 rounded-lg border text-xs font-bold transition ${currentPage === 1 ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-white text-black-primary hover:bg-purple1 hover:text-white cursor-pointer"}">
+        قبلی
+      </button>
+    `;
+
+    for (let i = 1; i <= totalPages; i++) {
+      buttonsHTML += `
+        <button onclick="changeAdminPage(${i})" 
+                class="px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${i === currentPage ? "bg-purple1 text-white" : "bg-white border text-black-primary hover:bg-gray-100"}">
+          ${i}
+        </button>
+      `;
+    }
+
+    buttonsHTML += `
+      <button onclick="changeAdminPage(${currentPage + 1})" 
+              ${currentPage === totalPages ? "disabled" : ""} 
+              class="px-3 py-1.5 rounded-lg border text-xs font-bold transition ${currentPage === totalPages ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-white text-black-primary hover:bg-purple1 hover:text-white cursor-pointer"}">
+        بعدی
+      </button>
+    `;
+
+    paginationContainer.innerHTML = buttonsHTML;
+  }
+
+  // تغییر صفحه
+  window.changeAdminPage = function (page) {
+    const totalPages = Math.ceil(adminUsersList.length / itemsPerPage);
+    if (page >= 1 && page <= totalPages) {
+      currentPage = page;
+      renderAdminUsers();
+    }
+  };
 
   // مودال افزودن ادمین
   window.openAddAdminModal = function () {
@@ -407,12 +584,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (modal) {
       modal.classList.remove("hidden");
       if (form) form.reset();
-      const titleEl = document.querySelector("#add-admin-modal h3");
-      if (titleEl) titleEl.textContent = "افزودن ادمین جدید";
-      const submitBtn = document.querySelector(
-        "#add-admin-modal button[type='submit']",
-      );
-      if (submitBtn) submitBtn.textContent = "افزودن ادمین";
       editingAdminId = null;
     }
   };
@@ -423,146 +594,148 @@ document.addEventListener("DOMContentLoaded", () => {
     editingAdminId = null;
   };
 
-  // مودال ویرایش ادمین (ساده)
-  window.openEditAdminModal = function (id) {
-    const admin = adminUsersList.find((a) => a.id === id);
-    if (!admin) {
-      return;
-    }
-
-    editingAdminId = id;
-    const modal = document.getElementById("add-admin-modal");
-    if (!modal) return;
-
-    document.getElementById("admin-fullname").value = admin.fullName || "";
-    document.getElementById("admin-phone-number").value = admin.phone || "";
-    document.getElementById("admin-username").value = admin.username || "";
-    document.getElementById("admin-password").value = admin.password || "";
-
-    const statusRadios = document.querySelectorAll(
-      "input[name='admin-status']",
-    );
-    statusRadios.forEach((radio) => {
-      radio.checked = radio.value === admin.status;
-    });
-
-    const titleEl = document.querySelector("#add-admin-modal h3");
-    if (titleEl) titleEl.textContent = "ویرایش اطلاعات ادمین";
-    const submitBtn = document.querySelector(
-      "#add-admin-modal button[type='submit']",
-    );
-    if (submitBtn) submitBtn.textContent = "ذخیره تغییرات";
-
-    modal.classList.remove("hidden");
-  };
-
-  // ارسال فرم افزودن/ویرایش ادمین
-  window.handleAddAdminSubmit = function (event) {
+  // ارسال فرم افزودن ادمین جدید
+  window.handleAddAdminSubmit = async function (event) {
     event.preventDefault();
 
-    const fullName = document.getElementById("admin-fullname").value.trim();
-    const phone = document.getElementById("admin-phone-number").value.trim();
-    const username = document.getElementById("admin-username").value.trim();
-    const password = document.getElementById("admin-password").value.trim();
-    const status =
-      document.querySelector("input[name='admin-status']:checked")?.value ||
-      "فعال";
+    const name = document.getElementById("admin-fullname")?.value.trim();
+    const mobile = document.getElementById("admin-phone-number")?.value.trim();
+    const email = document.getElementById("admin-username")?.value.trim();
+    const password = document.getElementById("admin-password")?.value.trim();
+    const submitButton = event.currentTarget?.querySelector("button[type='submit']");
+    const status = document.querySelector("input[name='admin-status']:checked")?.value;
+    const isActive = status !== "غیرفعال";
 
-    if (!fullName || !phone || !username || !password) {
+    if (!name || !mobile || !email || !password) {
+      window.showAppNotice("لطفا تمامی فیلدها را پر کنید.");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      window.showAppNotice("لطفاً یک ایمیل معتبر وارد کنید؛ مثال: admin@shop.com");
       return;
     }
 
-    if (password.length < 6) {
-      return;
-    }
-
-    if (editingAdminId) {
-      const index = adminUsersList.findIndex((a) => a.id === editingAdminId);
-      if (index !== -1) {
-        adminUsersList[index] = {
-          ...adminUsersList[index],
-          fullName,
-          phone,
-          username,
-          password,
-          status,
-        };
-      }
-    } else {
-      if (adminUsersList.some((a) => a.username === username)) {
-        return;
-      }
-
-      const newAdmin = {
-        id: Date.now(),
-        fullName,
-        phone,
-        username,
+    try {
+      if (submitButton) submitButton.disabled = true;
+      const payload = {
+        add_admin: true,
+        name,
+        mobile,
+        email,
         password,
-        status,
-        lastActivity:
-          new Date().toLocaleDateString("fa-IR") +
-          " - " +
-          new Date().toLocaleTimeString("fa-IR"),
         permissions: ["dashboard", "orders", "products"],
+        is_active: isActive,
       };
-      adminUsersList.unshift(newAdmin);
-    }
 
-    renderAdminUsers();
-    closeAddAdminModal();
+      const response = await fetchWithAuth("/admin-users", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      let finalResponse = response;
+      if (response?.status === false && !response?.authRequired) {
+        const formData = new FormData();
+        formData.append("add_admin", "1");
+        formData.append("name", name);
+        formData.append("mobile", mobile);
+        formData.append("email", email);
+        formData.append("password", password);
+        formData.append("permissions", JSON.stringify(payload.permissions));
+        formData.append("is_active", isActive ? "1" : "0");
+
+        finalResponse = await fetchWithAuth("/admin-users", {
+          method: "POST",
+          body: formData,
+        });
+      }
+      if (finalResponse?.status === false || finalResponse?.authRequired) {
+        throw new Error(finalResponse.message || "افزودن ادمین انجام نشد.");
+      }
+
+      closeAddAdminModal();
+      await fetchAdminUsers();
+      showPasswordMessage("ادمین جدید با موفقیت افزوده شد! ✅", "success");
+    } catch (err) {
+      window.showAppNotice(err.message || "خطا در افزودن ادمین");
+    } finally {
+      if (submitButton) submitButton.disabled = false;
+    }
   };
 
   // حذف ادمین
-  window.deleteAdmin = function (id) {
-    if (!confirm("آیا از حذف این ادمین اطمینان دارید؟")) return;
+  window.deleteAdmin = async function (id) {
+    if (!(await window.showAppConfirm("آیا از حذف این ادمین اطمینان دارید؟"))) return;
 
-    const index = adminUsersList.findIndex((a) => a.id === id);
-    if (index !== -1) {
-      adminUsersList.splice(index, 1);
-      renderAdminUsers();
+    try {
+      await fetchWithAuth("/admin-users", {
+        method: "DELETE",
+        body: JSON.stringify({ id }),
+      });
+
+      await fetchAdminUsers();
+      showPasswordMessage("ادمین با موفقیت حذف شد! ✅", "success");
+    } catch (err) {
+      window.showAppNotice(err.message || "خطا در حذف ادمین");
     }
   };
 
-  // راه‌اندازی اولیه
-  renderAdminUsers();
-
   // ==========================================================================
-  // 9. مدیریت ویرایش اطلاعات ادمین (مودال کامل)
+  // مدیریت ویرایش کامل ادمین و دسترسی‌ها
   // ==========================================================================
 
-  let currentEditingAdminId = null;
+  function buildAdminUpdatePayload(formData) {
+    return {
+      update_permissions: true,
+      admin_id: currentEditingAdminId,
+      permissions: formData.permissions,
+      is_active: formData.isActive,
+    };
+  }
 
-  // باز کردن مودال ویرایش کامل
-  window.openEditAdminModal = function (id) {
-    const admin = adminUsersList.find((a) => a.id === id);
-    if (!admin) {
-      return;
+  async function submitAdminUpdateRequest(payload) {
+    const response = await fetchWithAuth("/admin-users", {
+      method: "POST",
+      body: payload,
+    });
+
+    if (response?.status === false || response?.authRequired) {
+      throw new Error(response.message || "خطا در بروزرسانی دسترسی ادمین");
     }
 
-    currentEditingAdminId = id;
+    return response;
+  }
+
+  window.openEditAdminModal = function (id) {
+    const admin = adminUsersList.find((a) => Number(a.id) === Number(id));
+    if (!admin) return;
+
+    currentEditingAdminId = Number(id);
     const modal = document.getElementById("edit-admin-modal");
     if (!modal) return;
 
-    // پر کردن اطلاعات شخصی
-    document.getElementById("edit-admin-fullname").value = admin.fullName || "";
-    document.getElementById("edit-admin-phone").value = admin.phone || "";
-    document.getElementById("edit-admin-username").value = admin.username || "";
+    const normalizedAdmin = normalizeAdminRecord(admin);
+    const nameInput = document.getElementById("edit-admin-fullname");
+    const phoneInput = document.getElementById("edit-admin-phone");
+    const usernameInput = document.getElementById("edit-admin-username");
 
-    // تنظیم وضعیت حساب
+    if (nameInput) nameInput.value = normalizedAdmin.name || "";
+    if (phoneInput) phoneInput.value = normalizedAdmin.mobile || "";
+    if (usernameInput) {
+      usernameInput.value =
+        normalizedAdmin.email || normalizedAdmin.username || "";
+    }
+
     const statusRadios = document.querySelectorAll(
       "input[name='edit-admin-status']",
     );
     statusRadios.forEach((radio) => {
-      radio.checked = radio.value === admin.status;
+      radio.checked = Boolean(normalizedAdmin.is_active)
+        ? radio.value === "فعال"
+        : radio.value === "غیرفعال";
     });
 
-    // تنظیم دسترسی‌ها
-    const permissions = admin.permissions || [
-      "dashboard",
-      "orders",
-      "products",
-    ];
+    const permissions = normalizedAdmin.permissions.length
+      ? normalizedAdmin.permissions
+      : ["dashboard", "orders", "products"];
     const permissionCheckboxes = document.querySelectorAll(
       "input[name='admin-permissions']",
     );
@@ -573,14 +746,12 @@ document.addEventListener("DOMContentLoaded", () => {
     modal.classList.remove("hidden");
   };
 
-  // بستن مودال ویرایش
   window.closeEditAdminModal = function () {
     const modal = document.getElementById("edit-admin-modal");
     if (modal) modal.classList.add("hidden");
     currentEditingAdminId = null;
   };
 
-  // انتخاب همه / لغو همه دسترسی‌ها
   window.selectAllPermissions = function (select) {
     const checkboxes = document.querySelectorAll(
       "input[name='admin-permissions']",
@@ -590,19 +761,28 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   };
 
-  // ارسال فرم ویرایش ادمین
-  window.handleEditAdminSubmit = function (event) {
+  window.handleEditAdminSubmit = async function (event) {
     event.preventDefault();
 
-    const fullName = document
-      .getElementById("edit-admin-fullname")
-      .value.trim();
-    const phone = document.getElementById("edit-admin-phone").value.trim();
-    const status =
-      document.querySelector("input[name='edit-admin-status']:checked")
-        ?.value || "فعال";
+    const name = document.getElementById("edit-admin-fullname")?.value.trim();
+    const mobile = document.getElementById("edit-admin-phone")?.value.trim();
+    const email = document.getElementById("edit-admin-username")?.value.trim();
 
-    // دریافت دسترسی‌های انتخاب شده
+    if (!currentEditingAdminId) {
+      window.showAppNotice("هیچ ادمینی برای ویرایش انتخاب نشده است.");
+      return;
+    }
+
+    if (!name || !mobile || !email) {
+      window.showAppNotice("لطفاً نام، شماره تماس و ایمیل/نام کاربری را وارد کنید.");
+      return;
+    }
+
+    const statusVal = document.querySelector(
+      "input[name='edit-admin-status']:checked",
+    )?.value;
+    const isActive = statusVal === "فعال";
+
     const permissions = [];
     document
       .querySelectorAll("input[name='admin-permissions']:checked")
@@ -610,32 +790,77 @@ document.addEventListener("DOMContentLoaded", () => {
         permissions.push(cb.value);
       });
 
-    // اعتبارسنجی
-    if (!fullName || !phone) {
-      return;
+    const payload = buildAdminUpdatePayload({ isActive, permissions });
+
+    try {
+      await submitAdminUpdateRequest(payload);
+      const updatedAdmin = adminUsersList.find(
+        (admin) => Number(admin.id) === Number(currentEditingAdminId),
+      );
+      if (updatedAdmin) {
+        updatedAdmin.permissions = permissions;
+        updatedAdmin.permission = permissions;
+        updatedAdmin.is_active = isActive;
+      }
+      try {
+        const permissionsCache = JSON.parse(
+          localStorage.getItem("admin_permissions_cache") || "{}",
+        );
+        permissionsCache[String(currentEditingAdminId)] = permissions;
+        localStorage.setItem(
+          "admin_permissions_cache",
+          JSON.stringify(permissionsCache),
+        );
+      } catch {
+        // The server update already succeeded; UI cache is best effort.
+      }
+      closeEditAdminModal();
+      await fetchAdminUsers();
+      showPasswordMessage(
+        "اطلاعات ادمین با موفقیت به‌روزرسانی شد! ✅",
+        "success",
+      );
+    } catch (err) {
+      window.showAppNotice(err.message || "خطا در بروزرسانی اطلاعات ادمین");
     }
-
-    // پیدا کردن و به‌روزرسانی ادمین
-    const index = adminUsersList.findIndex(
-      (a) => a.id === currentEditingAdminId,
-    );
-    if (index !== -1) {
-      adminUsersList[index] = {
-        ...adminUsersList[index],
-        fullName,
-        phone,
-        status,
-        permissions,
-      };
-    }
-
-    renderAdminUsers();
-    closeEditAdminModal();
-
-    // نمایش پیام موفقیت
-    showPasswordMessage(
-      "اطلاعات ادمین با موفقیت به‌روزرسانی شد! ✅",
-      "success",
-    );
   };
+
+  document
+    .getElementById("close-edit-admin-modal-btn")
+    ?.addEventListener("click", () => {
+      closeEditAdminModal();
+    });
+
+  document
+    .getElementById("cancel-edit-admin-modal-btn")
+    ?.addEventListener("click", () => {
+      closeEditAdminModal();
+    });
+
+  document
+    .getElementById("edit-admin-form")
+    ?.addEventListener("submit", (event) => {
+      handleEditAdminSubmit(event);
+    });
+
+  const adminUsersContainer = document.getElementById("admin-users-list");
+  adminUsersContainer?.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-action]");
+    if (!button) return;
+
+    const adminId = Number(button.getAttribute("data-admin-id"));
+    const action = button.getAttribute("data-action");
+
+    if (action === "edit-admin") {
+      openEditAdminModal(adminId);
+    }
+
+    if (action === "delete-admin") {
+      deleteAdmin(adminId);
+    }
+  });
+
+  // بارگذاری اولیه داده‌ها
+  await loadAdminProfileData();
+  await fetchAdminUsers();
 });

@@ -24,7 +24,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ----------------------------------------------------------------------
-  // ۱. مدیریت منوی دسکتاپ
+  // 1. مدیریت منوی دسکتاپ
   // ----------------------------------------------------------------------
   const desktopNavLinks = document.querySelectorAll(
     ".nav-link:not(#admin-menu .nav-link)",
@@ -61,7 +61,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ----------------------------------------------------------------------
-  // ۲. مدیریت منوی موبایل
+  // 2. مدیریت منوی موبایل
   // ----------------------------------------------------------------------
   const mobileItems = document.querySelectorAll("#mobileMenu ul li");
 
@@ -107,7 +107,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // ----------------------------------------------------------------------
-  // ۳. باز و بستن منوی موبایل (اصلاح‌شده)
+  // 3. باز و بستن منوی موبایل (اصلاح‌شده)
   // ----------------------------------------------------------------------
   const mobileMenu = document.getElementById("mobileMenu");
   const overlayPublic = document.getElementById("overlay");

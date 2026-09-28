@@ -1,21 +1,78 @@
-import { adminUsersList, registeredUsers } from "./data.js";
+import { API_BASE_URL, fetchWithAuth } from "./data.js";
+
+// ==========================================================================
+// نمایش پیام عدم ورود و هدایت به مودال لاگین
+// ==========================================================================
+window.showLoginNoticeAndModal = function () {
+  let noticeModal = document.getElementById("loginNoticeModal");
+
+  if (!noticeModal) {
+    noticeModal = document.createElement("div");
+    noticeModal.id = "loginNoticeModal";
+    noticeModal.className =
+      "fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 transition-opacity duration-300";
+    noticeModal.innerHTML = `
+      <div class="bg-white rounded-2xl p-6 max-w-sm w-full text-center shadow-xl border border-gray-100">
+        <div class="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-4">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+          </svg>
+        </div>
+        <h3 class="text-lg font-bold text-gray-800 mb-2">هنوز وارد نشده‌اید!</h3>
+        <p class="text-sm text-gray-600 mb-4">برای ادامه کار، لطفاً ابتدا وارد حساب کاربری خود شوید.</p>
+        <div class="w-full bg-gray-200 h-1.5 rounded-full overflow-hidden">
+          <div class="bg-purple1 h-full w-full animate-pulse"></div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(noticeModal);
+  } else {
+    noticeModal.classList.remove("hidden");
+  }
+
+  document.body.classList.add("overflow-hidden");
+
+  setTimeout(() => {
+    noticeModal.classList.add("hidden");
+    const authModal = document.getElementById("authModal");
+    if (authModal) {
+      authModal.classList.remove("hidden");
+    } else {
+      document.body.classList.remove("overflow-hidden");
+    }
+  }, 2000);
+};
 
 document.addEventListener("DOMContentLoaded", () => {
-  let currentLoggedInAdmin = null;
+  if (window.location.protocol === "file:") {
+    console.warn(
+      "This storefront must be served over http:// or https:// to call the API correctly.",
+    );
+    const fileProtocolLoginError = document.getElementById("loginError");
+    if (fileProtocolLoginError) {
+      fileProtocolLoginError.textContent =
+        "برای ورود و بارگذاری محصولات، پروژه باید از طریق localhost/http اجرا شود.";
+      fileProtocolLoginError.classList.remove("hidden");
+    }
+  }
 
-  // المان‌های مربوط به پروفایل و احراز هویت
+  // المان‌های احراز هویت
   const desktopAuthBtn = document.getElementById("desktopAuthBtn");
-  const desktopUserProfile = document.getElementById("desktopUserProfile");
+  const userProfileWrapper = document.getElementById("userProfileWrapper");
+  const profileBtn = document.getElementById("desktopUserProfile");
+  const userMenuDropdown = document.getElementById("userMenuDropdown");
+  const chevron = document.getElementById("profileChevron");
+
   const mobileAuthBtn = document.getElementById("mobileAuthBtn");
   const mobileUserProfile = document.getElementById("mobileUserProfile");
-  const mobileLogoutBtn = document.getElementById("mobileLogoutBtn");
 
-  // المان‌های مودال احراز هویت
+  // المان‌های مودال
   const authModal = document.getElementById("authModal");
   const closeAuthModalBtn = document.getElementById("closeAuthModal");
   const tabLogin = document.getElementById("tabLogin");
   const tabRegister = document.getElementById("tabRegister");
   const loginForm = document.getElementById("loginForm");
+  const loginSubmitBtn = loginForm?.querySelector('button[type="submit"]');
   const registerForm = document.getElementById("registerForm");
   const loginError = document.getElementById("loginError");
   const registerError = document.getElementById("registerError");
@@ -23,97 +80,297 @@ document.addEventListener("DOMContentLoaded", () => {
   const switchToLogin = document.getElementById("switchToLogin");
   const openAuthBtns = document.querySelectorAll(".openAuthModal");
 
-  // --- مدیریت وضعیت ورود / خروج در UI ---
-  function checkAuthStatus() {
-    const userRaw = localStorage.getItem("user");
-    const user = userRaw ? JSON.parse(userRaw) : null;
+  // المان‌های نمایش پروفایل
+  const userInitialEls = document.querySelectorAll(".userInitial");
+  const userNameEls = document.querySelectorAll(".userName");
+  const userPhoneEl = document.getElementById("userPhone");
 
-    if (user && (user.fullName || user.username)) {
-      const displayName = user.fullName || user.username;
-      const initial = displayName.charAt(0).toUpperCase();
+  function updateProfileCompletion(user) {
+    const fields = [
+      user.name || user.customer_name || user.full_name,
+      user.mobile || user.phone,
+      user.national_id || user.nationalId,
+      user.birthdate || user.birth_date,
+      user.province,
+      user.city,
+      user.postal_code || user.postalCode,
+      user.address,
+    ];
+    const completedFields = fields.filter((value) =>
+      String(value ?? "").trim(),
+    ).length;
+    const percentage = Math.round((completedFields / fields.length) * 100);
+    const percentageLabel = `${percentage.toLocaleString("fa-IR")}٪`;
 
-      // مخفی کردن دکمه‌های ورود
-      if (desktopAuthBtn) desktopAuthBtn.classList.add("hidden");
-      if (mobileAuthBtn) mobileAuthBtn.classList.add("hidden");
+    document.querySelectorAll("[data-profile-progress]").forEach((progress) => {
+      progress.setAttribute("aria-valuenow", String(percentage));
+      progress.setAttribute("aria-valuetext", percentageLabel);
+    });
+    document
+      .querySelectorAll("[data-profile-completion-bar]")
+      .forEach((progressBar) => {
+        progressBar.style.width = `${percentage}%`;
+      });
+    document
+      .querySelectorAll("[data-profile-completion-value]")
+      .forEach((progressValue) => {
+        progressValue.textContent = percentageLabel;
+      });
+  }
 
-      // نمایش پروفایل‌ها
-      if (desktopUserProfile) {
-        desktopUserProfile.classList.remove("hidden");
-        desktopUserProfile.classList.add("flex");
+  function clearAuthState() {
+    ["user", "userData", "token", "userRole", "currentLoggedInAdmin"].forEach(
+      (key) => {
+        sessionStorage.removeItem(key);
+        localStorage.removeItem(key);
+      },
+    );
+  }
+
+  // 1. بررسی وضعیت لاگین و نمایش/مخفی‌سازی بخش‌ها
+  async function checkAuthStatus() {
+    const token = localStorage.getItem("token");
+
+    const userRaw =
+      sessionStorage.getItem("user") ||
+      sessionStorage.getItem("userData") ||
+      localStorage.getItem("user") ||
+      localStorage.getItem("userData");
+    let user = userRaw ? JSON.parse(userRaw) : null;
+
+    if (token) {
+      // نمایش پروفایل و مخفی کردن دکمه ورود/ثبت‌نام
+      if (desktopAuthBtn) {
+        desktopAuthBtn.classList.remove("lg:flex", "flex");
+        desktopAuthBtn.classList.add("hidden");
+      }
+      if (mobileAuthBtn) {
+        mobileAuthBtn.classList.remove("flex");
+        mobileAuthBtn.classList.add("hidden");
+      }
+
+      if (userProfileWrapper) {
+        userProfileWrapper.classList.remove("hidden");
       }
       if (mobileUserProfile) {
         mobileUserProfile.classList.remove("hidden");
         mobileUserProfile.classList.add("flex");
       }
 
-      // به‌روزرسانی نام و کاراکتر اول
-      document.querySelectorAll(".userName").forEach((el) => {
-        el.textContent = displayName;
-      });
-      document.querySelectorAll(".userInitial").forEach((el) => {
-        el.textContent = initial;
-      });
+      // آپدیت اولیه بر اساس اطلاعات ذخیره‌شده
+      if (user) {
+        updateUserUI(user);
+      }
+
+      // دریافت پروفایل به‌روز از API فقط در صورت وجود توکن معتبر
+      try {
+        const res = await fetchWithAuth("/profile", {
+          method: "GET",
+        });
+        const apiUser = res?.data ?? res?.user ?? res ?? null;
+        if (apiUser && apiUser !== null && typeof apiUser === "object") {
+          localStorage.setItem("user", JSON.stringify(apiUser));
+          localStorage.setItem("userData", JSON.stringify(apiUser));
+          updateUserUI(apiUser);
+        }
+      } catch (err) {
+        console.warn("استفاده از اطلاعات محلی کاربر به دلیل خطا در شبکه:", err);
+      }
     } else {
-      // نمایش دکمه‌های ورود
+      // مخفی کردن کامل پروفایل و نمایش دکمه ورود/ثبت‌نام
       if (desktopAuthBtn) {
         desktopAuthBtn.classList.remove("hidden");
         desktopAuthBtn.classList.add("lg:flex");
       }
-      if (mobileAuthBtn) mobileAuthBtn.classList.remove("hidden");
+      if (mobileAuthBtn) {
+        mobileAuthBtn.classList.remove("hidden");
+      }
 
-      // مخفی کردن پروفایل‌ها
-      if (desktopUserProfile) {
-        desktopUserProfile.classList.add("hidden");
-        desktopUserProfile.classList.remove("flex");
+      if (userProfileWrapper) {
+        userProfileWrapper.classList.add("hidden");
       }
       if (mobileUserProfile) {
         mobileUserProfile.classList.add("hidden");
         mobileUserProfile.classList.remove("flex");
       }
+      if (userMenuDropdown) {
+        userMenuDropdown.classList.add("hidden");
+      }
     }
   }
 
-  // رویداد دکمه خروج موبایل
-  mobileLogoutBtn?.addEventListener("click", () => {
-    localStorage.removeItem("user");
-    checkAuthStatus();
-  });
+  // 2. بروزرسانی اطلاعات متنی کاربر در DOM
+  function updateUserUI(user) {
+    const name =
+      user.name || user.customer_name || user.mobile || "کاربر گرامی";
+    const mobile = user.mobile || user.phone || "---";
+    const initial = name.trim().charAt(0).toUpperCase() || "ک";
 
-  // --- تابع مسیردهی دقیق ادمین ---
+    userNameEls.forEach((el) => (el.textContent = name));
+    userInitialEls.forEach((el) => (el.textContent = initial));
+    if (userPhoneEl) userPhoneEl.textContent = mobile;
+    updateProfileCompletion(user);
+  }
+
+  // 3. مدیریت کلیک دکمه پروفایل و باز/بسته شدن دراپ‌داون
+  if (profileBtn && userMenuDropdown) {
+    profileBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const isHidden = userMenuDropdown.classList.contains("hidden");
+
+      if (isHidden) {
+        userMenuDropdown.classList.remove("hidden");
+        if (chevron) chevron.style.transform = "rotate(180deg)";
+      } else {
+        userMenuDropdown.classList.add("hidden");
+        if (chevron) chevron.style.transform = "rotate(0deg)";
+      }
+    });
+
+    document.addEventListener("click", (e) => {
+      if (userProfileWrapper && !userProfileWrapper.contains(e.target)) {
+        userMenuDropdown.classList.add("hidden");
+        if (chevron) chevron.style.transform = "rotate(0deg)";
+      }
+    });
+  }
+
+  // 4. منطق مسیرهای ورود/خروج
   function getAdminPath() {
     const pathname = window.location.pathname;
-
-    if (pathname.includes("/admin/")) {
-      return "./index.html";
-    }
+    if (pathname.includes("/admin/")) return "./index.html";
 
     const segments = pathname.split("/").filter(Boolean);
+    const isNestedPage =
+      segments.length > 0 && segments[segments.length - 1] !== "index.html";
 
-    if (segments.length > 0 && segments[segments.length - 1] === "index.html") {
-      segments.pop();
+    return isNestedPage ? "../admin/index.html" : "./admin/index.html";
+  }
+
+  function getMainPagePath() {
+    return window.location.pathname.includes("/admin/")
+      ? "../index.html"
+      : "./index.html";
+  }
+
+  function getStoredUser() {
+    try {
+      const raw =
+        sessionStorage.getItem("user") ||
+        sessionStorage.getItem("userData") ||
+        localStorage.getItem("user") ||
+        localStorage.getItem("userData");
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function getRoleValueFromUser(user) {
+    if (!user || typeof user !== "object") return "";
+
+    const role =
+      user.role ||
+      user.user_role ||
+      user.userRole ||
+      user.type ||
+      user.account_type ||
+      user.role_name ||
+      user.permission_level ||
+      "";
+
+    if (role && String(role).toLowerCase() !== "user") return String(role);
+
+    if (
+      user.is_admin === true ||
+      user.admin === true ||
+      user.isAdmin === true
+    ) {
+      return "admin";
     }
 
-    const isRoot =
-      segments.length === 0 ||
-      segments[segments.length - 1] === "127.0.0.1:5500";
+    return "";
+  }
 
-    if (isRoot) {
-      return "./admin/index.html";
+  function isAdminSession() {
+    const token = localStorage.getItem("token");
+
+    const user = getStoredUser();
+    const savedRole =
+      sessionStorage.getItem("userRole") ||
+      localStorage.getItem("userRole") ||
+      "";
+    const role =
+      savedRole ||
+      getRoleValueFromUser(user) ||
+      user?.role ||
+      user?.user_role ||
+      "";
+
+    return Boolean(
+      token &&
+      (String(role).toLowerCase() === "admin" ||
+        String(role).toLowerCase() === "super_admin" ||
+        String(role).toLowerCase() === "manager" ||
+        user?.is_admin === true ||
+        user?.admin === true ||
+        user?.isAdmin === true),
+    );
+  }
+
+  function enforceAdminPanelRestrictions() {
+    if (window.location.pathname.includes("/admin/")) {
+      if (!isAdminSession()) {
+        window.location.replace(getMainPagePath());
+        return;
+      }
+
+      const blockBackNavigation = () => {
+        history.pushState(null, "", window.location.href);
+      };
+
+      blockBackNavigation();
+      window.addEventListener("popstate", () => {
+        blockBackNavigation();
+        window.location.replace(window.location.href);
+      });
+      return;
+    }
+
+    if (isAdminSession()) {
+      window.location.replace(getAdminPath());
+    }
+  }
+
+  function performLogout() {
+    clearAuthState();
+
+    if (window.location.pathname.includes("/admin/")) {
+      window.location.replace(getMainPagePath());
     } else {
-      return "../admin/index.html";
+      checkAuthStatus();
     }
   }
 
-  // بستن ایمن منوی موبایل
-  function closeMobileMenuSafe() {
-    const mobileMenu = document.getElementById("mobileMenu");
-    const overlay = document.getElementById("overlay");
-    if (mobileMenu) mobileMenu.style.right = "-100%";
-    if (overlay) overlay.classList.add("hidden");
-    document.body.classList.remove("overflow-hidden");
-  }
+  document.addEventListener("click", (e) => {
+    const target = e.target.closest("a, button");
+    if (!target) return;
 
-  // توابع نمایش/مخفی‌سازی مودال
+    const id = target.id || "";
+    const text = target.innerText?.trim() || "";
+
+    if (
+      id === "logoutBtn" ||
+      id === "mobileLogoutBtn" ||
+      id === "adminLogoutBtn" ||
+      text.includes("خروج از حساب")
+    ) {
+      e.preventDefault();
+      performLogout();
+    }
+  });
+
+  // 5. مدیریت مودال ورود / ثبت‌نام
   function showModal() {
     if (!authModal) return;
     authModal.classList.remove("hidden");
@@ -132,11 +389,20 @@ document.addEventListener("DOMContentLoaded", () => {
     if (loginError) {
       loginError.innerText = "";
       loginError.classList.add("hidden");
+      loginError.classList.remove("text-green-600");
+      loginError.classList.add("text-purple1");
     }
     if (registerError) {
       registerError.innerText = "";
       registerError.classList.add("hidden");
     }
+  }
+
+  function normalizeDigits(value) {
+    return String(value || "")
+      .replace(/[۰-۹]/g, (digit) => "۰۱۲۳۴۵۶۷۸۹".indexOf(digit))
+      .replace(/[٠-٩]/g, (digit) => "٠١٢٣٤٥٦٧٨٩".indexOf(digit))
+      .trim();
   }
 
   function switchToLoginTab() {
@@ -163,15 +429,18 @@ document.addEventListener("DOMContentLoaded", () => {
     tabLogin?.classList.add("text-gray-400");
   }
 
-  // شنونده کلیک دکمه‌های باز کردن مودال ورود
   openAuthBtns.forEach((btn) => {
     btn.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      closeMobileMenuSafe();
       showModal();
     });
   });
+
+  if (window.location.hash === "#login") {
+    showModal();
+    history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+  }
 
   closeAuthModalBtn?.addEventListener("click", hideModal);
   tabLogin?.addEventListener("click", switchToLoginTab);
@@ -183,96 +452,299 @@ document.addEventListener("DOMContentLoaded", () => {
     if (e.target === authModal) hideModal();
   });
 
-  // --- پردازش فرم ورود ---
-  loginForm?.addEventListener("submit", (e) => {
+  // 6. فرم ثبت‌نام
+  registerForm?.addEventListener("submit", async (e) => {
     e.preventDefault();
     clearErrors();
 
-    const usernameInput = document
-      .getElementById("loginUsername")
-      ?.value.trim();
-    const passwordInput = document
-      .getElementById("loginPassword")
-      ?.value.trim();
-
-    // ۱. بررسی ورود ادمین
-    const foundAdmin = adminUsersList.find(
-      (admin) =>
-        admin.username === usernameInput && admin.password === passwordInput,
+    const name = document.getElementById("regFullName")?.value.trim() || "";
+    const mobile = normalizeDigits(
+      document.getElementById("regMobile")?.value ||
+        document.getElementById("regPhone")?.value,
     );
+    const email =
+      document.getElementById("regEmail")?.value.trim() ||
+      document.getElementById("regUsername")?.value.trim() ||
+      "";
+    const password = document.getElementById("regPassword")?.value || "";
+    const passwordConfirm =
+      document.getElementById("regPasswordConfirm")?.value || "";
 
-    if (foundAdmin) {
-      currentLoggedInAdmin = { ...foundAdmin };
-      localStorage.setItem("user", JSON.stringify(currentLoggedInAdmin));
-      window.location.href = getAdminPath();
-      return;
-    }
-
-    // ۲. بررسی ورود کاربر عادی
-    const foundUser = registeredUsers.find(
-      (user) =>
-        user.username === usernameInput && user.password === passwordInput,
-    );
-
-    if (foundUser) {
-      localStorage.setItem("user", JSON.stringify(foundUser));
-      checkAuthStatus();
-      hideModal();
-      return;
-    }
-
-    // ۳. اگر کاربر پیدا نشد
-    if (loginError) {
-      loginError.innerText =
-        "کاربری با این مشخصات یافت نشد! لطفا ابتدا ثبت نام کنید.";
-      loginError.classList.remove("hidden");
-    }
-
-    setTimeout(() => {
-      switchToRegisterTab();
-      const regUsername = document.getElementById("regUsername");
-      if (regUsername) regUsername.value = usernameInput || "";
-    }, 1500);
-  });
-
-  // --- پردازش فرم ثبت‌نام ---
-  registerForm?.addEventListener("submit", (e) => {
-    e.preventDefault();
-    clearErrors();
-
-    const fullNameInput = document.getElementById("regFullName")?.value.trim();
-    const usernameInput = document.getElementById("regUsername")?.value.trim();
-    const passwordInput = document.getElementById("regPassword")?.value.trim();
-
-    const existsInAdmins = adminUsersList.some(
-      (admin) => admin.username === usernameInput,
-    );
-    const existsInUsers = registeredUsers.some(
-      (user) => user.username === usernameInput,
-    );
-
-    if (existsInAdmins || existsInUsers) {
+    if (password !== passwordConfirm) {
       if (registerError) {
-        registerError.innerText = "این نام کاربری قبلاً ثبت شده است!";
+        registerError.innerText = "تکرار رمز عبور صحیح نیست.";
         registerError.classList.remove("hidden");
       }
       return;
     }
 
-    const newUser = {
-      fullName: fullNameInput,
-      username: usernameInput,
-      password: passwordInput,
-    };
+    try {
+      const response = await fetch(`${API_BASE_URL}/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, mobile, password }),
+      });
+      const data = await response.json();
 
-    registeredUsers.push(newUser);
-    localStorage.setItem("user", JSON.stringify(newUser));
-
-    checkAuthStatus();
-    hideModal();
-    registerForm.reset();
+      if (response.ok && (data.status === "true" || data.status === true)) {
+        switchToLoginTab();
+        if (loginError) {
+          loginError.innerText = "ثبت‌نام با موفقیت انجام شد؛ اکنون وارد شوید.";
+          loginError.classList.remove("hidden");
+          loginError.classList.add("text-green-600");
+        }
+      } else if (registerError) {
+        registerError.innerText = data.message || "ثبت‌نام انجام نشد.";
+        registerError.classList.remove("hidden");
+      }
+    } catch (err) {
+      console.error(err);
+      if (registerError) {
+        registerError.innerText = "خطا در ارتباط با سرور.";
+        registerError.classList.remove("hidden");
+      }
+    }
   });
 
-  // بررسی وضعیت لاگین به محض بارگذاری صفحه
+  // 7. فرم لاگین
+  loginForm?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    clearErrors();
+
+    const mobileInput = normalizeDigits(
+      (
+        document.getElementById("loginUsername") ||
+        document.getElementById("loginMobile") ||
+        loginForm.querySelector('input[type="tel"]') ||
+        loginForm.querySelector('input[type="text"]')
+      )?.value,
+    );
+
+    const passwordInput =
+      (
+        document.getElementById("loginPassword") ||
+        loginForm.querySelector('input[type="password"]')
+      )?.value.trim() || "";
+
+    if (!mobileInput || !passwordInput) {
+      if (loginError) {
+        loginError.innerText = "لطفاً تمامی فیلدها را وارد کنید.";
+        loginError.classList.remove("hidden");
+      }
+      return;
+    }
+
+    try {
+      if (loginSubmitBtn) loginSubmitBtn.disabled = true;
+
+      const loginPayloadVariants = [
+        { mobile: mobileInput, password: passwordInput },
+      ];
+
+      let finalData = null;
+      let finalResponse = null;
+      let lastErrorMessage = "اطلاعات ورود اشتباه است.";
+
+      for (let i = 0; i < loginPayloadVariants.length; i += 1) {
+        const payload = loginPayloadVariants[i];
+
+        try {
+          const response = await fetch(`${API_BASE_URL}/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+
+          const data = await response.json().catch(() => null);
+          finalResponse = response;
+          finalData = data;
+
+          if (response.ok) {
+            if (
+              data &&
+              (data.status === "success" ||
+                data.token ||
+                data.access_token ||
+                data.status === true ||
+                data.user ||
+                data.data)
+            ) {
+              break;
+            }
+          }
+
+          if (response.status === 401 || response.status === 400) {
+            lastErrorMessage =
+              data?.message ||
+              data?.error ||
+              "شماره همراه یا رمز عبور اشتباه است.";
+            continue;
+          }
+
+          if (response.status === 429) {
+            lastErrorMessage =
+              "تعداد تلاش‌ها زیاد است؛ لطفاً کمی بعد دوباره تلاش کنید.";
+            break;
+          }
+
+          lastErrorMessage =
+            data?.message || data?.error || "خطا در ورود به حساب.";
+        } catch (err) {
+          console.warn("درخواست ورود ناموفق بود:", err);
+          lastErrorMessage = "خطا در ارتباط با سرور.";
+        }
+
+        if (i < loginPayloadVariants.length - 1) {
+          continue;
+        }
+      }
+
+      if (!finalResponse || !finalData) {
+        throw new Error("پاسخ نامعتبر از سرور دریافت شد");
+      }
+
+      const data = finalData;
+
+      if (
+        finalResponse.ok &&
+        (data.status === "success" ||
+          data.token ||
+          data.access_token ||
+          data.status === true ||
+          data.data ||
+          data.user)
+      ) {
+        const nestedData = data.data || {};
+        const token =
+          data.token ||
+          data.access_token ||
+          data.auth_token ||
+          nestedData.token ||
+          nestedData.access_token ||
+          nestedData.auth_token ||
+          data.user?.token ||
+          data.user?.access_token ||
+          "";
+
+        if (token) {
+          localStorage.setItem("token", token);
+          sessionStorage.removeItem("token");
+        }
+
+        const user =
+          data.user ||
+          nestedData.user ||
+          nestedData.profile ||
+          nestedData.data ||
+          data.profile ||
+          data.data ||
+          null;
+
+        const normalizedUserForRole =
+          typeof user === "string" ? JSON.parse(user) : user || {};
+        const inferredRoleFromResponse = getRoleValueFromUser(
+          normalizedUserForRole,
+        );
+        const responseRole = String(
+          data?.role ||
+            data?.user?.role ||
+            data?.data?.role ||
+            data?.profile?.role ||
+            normalizedUserForRole?.role ||
+            "",
+        ).toLowerCase();
+        const isAdminLogin =
+          responseRole === "admin" ||
+          responseRole === "super_admin" ||
+          responseRole === "manager" ||
+          String(inferredRoleFromResponse).toLowerCase() === "admin" ||
+          String(inferredRoleFromResponse).toLowerCase() === "super_admin" ||
+          String(inferredRoleFromResponse).toLowerCase() === "manager" ||
+          normalizedUserForRole?.is_admin === true ||
+          normalizedUserForRole?.admin === true ||
+          normalizedUserForRole?.isAdmin === true ||
+          data.user?.is_admin === true ||
+          data.data?.is_admin === true ||
+          data.profile?.is_admin === true ||
+          data.is_admin === true ||
+          data.admin === true;
+
+        if (token && isAdminLogin) {
+          sessionStorage.setItem("userRole", "admin");
+          localStorage.setItem("userRole", "admin");
+        }
+
+        if (user) {
+          const normalizedUser =
+            typeof user === "string" ? JSON.parse(user) : user;
+          sessionStorage.setItem("user", JSON.stringify(normalizedUser));
+          sessionStorage.setItem("userData", JSON.stringify(normalizedUser));
+          localStorage.setItem("user", JSON.stringify(normalizedUser));
+          localStorage.setItem("userData", JSON.stringify(normalizedUser));
+
+          const role = getRoleValueFromUser(normalizedUser);
+          if (role) {
+            sessionStorage.setItem("userRole", String(role));
+            localStorage.setItem("userRole", String(role));
+          }
+        }
+
+        const inferredRole =
+          sessionStorage.getItem("userRole") ||
+          localStorage.getItem("userRole") ||
+          String(
+            data?.role ||
+              data?.user?.role ||
+              data?.data?.role ||
+              data?.profile?.role ||
+              data?.user?.user_role ||
+              data?.data?.user_role ||
+              data?.profile?.user_role ||
+              "",
+          ) ||
+          getRoleValueFromUser(data.user || data.data || data.profile) ||
+          getRoleValueFromUser(data) ||
+          "";
+
+        if (
+          String(inferredRole).toLowerCase() === "admin" ||
+          String(inferredRole).toLowerCase() === "super_admin" ||
+          String(inferredRole).toLowerCase() === "manager" ||
+          data.user?.is_admin === true ||
+          data.data?.is_admin === true ||
+          data.profile?.is_admin === true ||
+          data.is_admin === true ||
+          data.admin === true ||
+          isAdminLogin
+        ) {
+          if (!sessionStorage.getItem("userRole") && inferredRole) {
+            sessionStorage.setItem("userRole", String(inferredRole));
+          }
+          window.location.href = getAdminPath();
+          return;
+        }
+
+        checkAuthStatus();
+        hideModal();
+      } else {
+        if (loginError) {
+          loginError.innerText = lastErrorMessage;
+          loginError.classList.remove("hidden");
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      if (loginError) {
+        loginError.innerText =
+          "خطا در ارتباط با سرور یا اطلاعات ورود نامعتبر است.";
+        loginError.classList.remove("hidden");
+      }
+    } finally {
+      if (loginSubmitBtn) loginSubmitBtn.disabled = false;
+    }
+  });
+
+  // اجرای بررسی وضعیت احراز هویت در ابتدا
   checkAuthStatus();
+  enforceAdminPanelRestrictions();
 });

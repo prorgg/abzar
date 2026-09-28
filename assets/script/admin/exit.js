@@ -32,11 +32,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // دکمه تایید خروج
   confirmLogoutBtn?.addEventListener("click", () => {
-    // پاک کردن داده‌های ذخیره‌شده ادمین
-    localStorage.removeItem("currentLoggedInAdmin");
-    sessionStorage.removeItem("currentLoggedInAdmin");
+    [
+      "user",
+      "userData",
+      "token",
+      "userRole",
+      "currentLoggedInAdmin",
+    ].forEach((key) => {
+      localStorage.removeItem(key);
+      sessionStorage.removeItem(key);
+    });
 
-    // هدایت به صفحه اصلی یا لاگین
-    window.location.href = "../index.html";
+    window.location.replace("../index.html");
   });
 });

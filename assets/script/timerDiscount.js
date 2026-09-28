@@ -1,4 +1,4 @@
-// ۵. تایمر شمارش معکوس
+// 5. تایمر شمارش معکوس
 // ----------------------------------------------------------------------
 document.addEventListener("DOMContentLoaded", () => {
     const daysEl = document.getElementById("days");

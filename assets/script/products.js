@@ -1,968 +1,757 @@
-import { allProducts } from "./data.js";
+﻿import {
+  fetchWithAuth,
+  resolveFrontendAssetPath,
+  resolveProductImagePath,
+} from "./data.js";
+import { isFavorite, registerFavoriteProduct } from "./favorites.js";
+import {
+  decodeUtf8Mojibake,
+  matchesSelectedCategory,
+} from "./categories.js";
+
+const PAGE_SIZE = 8;
+
+async function fetchCategories() {
+  try {
+    const response = await fetchWithAuth("/categories");
+    const categories = Array.isArray(response)
+      ? response
+      : response?.data || response?.categories || [];
+
+    return categories
+      .map((category) => ({
+        id: category.id ?? category.category_id,
+        name: decodeUtf8Mojibake(
+          category.title || category.name || category.category_name || "",
+        ),
+      }))
+      .filter((category) => category.id && category.name);
+  } catch (error) {
+    console.error("خطا در دریافت دسته‌بندی‌های فیلتر:", error);
+    return [];
+  }
+}
+
+function getCategoryFilterFromUrl(categories) {
+  const params = new URLSearchParams(window.location.search);
+  const id = params.get("categoryId") || "";
+  const name = decodeUtf8Mojibake(params.get("categoryName") || "");
+  if (!id && !name) return null;
+
+  const matchedCategory = categories.find(
+    (category) =>
+      (id && String(category.id) === id) ||
+      (name && normalizeText(category.name) === normalizeText(name)),
+  );
+
+  return {
+    id: id || String(matchedCategory?.id || ""),
+    name: name || matchedCategory?.name || "",
+  };
+}
+
+function populateCategoryFilter(categories, selectedCategory) {
+  const categorySelect = document.getElementById("filter-category-select");
+  if (!categorySelect) return;
+
+  categorySelect.replaceChildren(new Option("همه دسته‌بندی‌ها", "all"));
+  categories.forEach((category) => {
+    const option = new Option(category.name, String(category.id));
+    option.dataset.categoryName = category.name;
+    categorySelect.add(option);
+  });
+
+  if (
+    selectedCategory?.id &&
+    !categories.some((category) => String(category.id) === selectedCategory.id)
+  ) {
+    const option = new Option(
+      selectedCategory.name || `دسته ${selectedCategory.id}`,
+      selectedCategory.id,
+    );
+    option.dataset.categoryName = selectedCategory.name;
+    categorySelect.add(option);
+  }
+
+  categorySelect.value = selectedCategory?.id || "all";
+}
+
+function getSelectedCategoryFilter() {
+  const categorySelect = document.getElementById("filter-category-select");
+  if (!categorySelect || categorySelect.value === "all") return null;
+
+  const selectedOption = categorySelect.selectedOptions[0];
+  return {
+    id: categorySelect.value,
+    name:
+      selectedOption?.dataset.categoryName ||
+      selectedOption?.textContent.trim() ||
+      "",
+  };
+}
+
+function updateCategoryFilterUrl(category) {
+  const url = new URL(window.location.href);
+  if (category) {
+    url.searchParams.set("categoryId", category.id);
+    url.searchParams.set("categoryName", category.name);
+  } else {
+    url.searchParams.delete("categoryId");
+    url.searchParams.delete("categoryName");
+  }
+  window.history.replaceState(
+    window.history.state,
+    "",
+    `${url.pathname}${url.search}${url.hash}`,
+  );
+}
+
+function updateCategoryFilterChip(category) {
+  const chip = document.getElementById("active-category-filter");
+  const name = document.getElementById("active-category-name");
+  if (!chip || !name) return;
+
+  chip.hidden = !category;
+  name.textContent = category?.name || "";
+}
+
+function readFilterControls() {
+  return {
+    search: document.getElementById("filter-search-input")?.value || "",
+    discountOnly:
+      document.getElementById("filter-discount-select")?.value === "discounted",
+    brand: document.getElementById("brand-filter-select")?.value || "all",
+    stock: document.getElementById("stock-filter-select")?.value || "all",
+    category: getSelectedCategoryFilter(),
+  };
+}
+
+function writeFilterControls(filters = {}) {
+  const search = document.getElementById("filter-search-input");
+  const category = document.getElementById("filter-category-select");
+  const discount = document.getElementById("filter-discount-select");
+  const brand = document.getElementById("brand-filter-select");
+  const stock = document.getElementById("stock-filter-select");
+
+  if (search) search.value = filters.search || "";
+  if (category) category.value = filters.category?.id || "all";
+  if (discount) discount.value = filters.discountOnly ? "discounted" : "all";
+  if (brand) brand.value = filters.brand || "all";
+  if (stock) stock.value = filters.stock || "all";
+}
+
+function hasActiveFilters(filters = {}) {
+  return Boolean(
+    filters.search?.trim() ||
+      filters.discountOnly ||
+      (filters.brand && filters.brand !== "all") ||
+      (filters.stock && filters.stock !== "all") ||
+      filters.category,
+  );
+}
+
+function updateFilterTrigger(filters) {
+  const button = document.getElementById("filter-trigger");
+  if (!button) return;
+
+  const active = hasActiveFilters(filters);
+  button.setAttribute("aria-pressed", String(active));
+  button.classList.toggle("bg-purple1", active);
+  button.classList.toggle("text-white", active);
+  button.classList.toggle("hover:bg-purple1/90", active);
+  button.classList.toggle("bg-white", !active);
+  button.classList.toggle("text-purple1", !active);
+  button.classList.toggle("hover:bg-yasi/50", !active);
+}
+
+function normalizeText(value) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase();
+}
+
+function getProductImage(item) {
+  if (!item) {
+    return resolveProductImagePath("./assets/images/products/achar.jpg");
+  }
+
+  let imageList =
+    item.images ?? item.gallery ?? item.image_urls ?? item.imageUrl;
+
+  if (typeof imageList === "string") {
+    try {
+      imageList = JSON.parse(imageList);
+    } catch {
+      imageList = [imageList];
+    }
+  }
+
+  const firstImage = Array.isArray(imageList)
+    ? imageList.find((img) => !!img && img !== "null" && img !== "undefined")
+    : null;
+
+  return resolveProductImagePath(
+    firstImage ||
+      item.image ||
+      item.image_url ||
+      item.cover ||
+      item.pic ||
+      "./assets/images/products/achar.jpg",
+  );
+}
+
+function formatPrice(value) {
+  const numberValue = Number(value || 0);
+  return Number.isFinite(numberValue)
+    ? new Intl.NumberFormat("en-US").format(numberValue)
+    : "0";
+}
+
+function getProductTitle(product) {
+  return product.title || product.name || "محصول بدون عنوان";
+}
+
+function getProductBrand(product) {
+  return (
+    product.brand || product.brand_name || product.manufacturer || "بدون برند"
+  );
+}
+
+function getProductPrice(product) {
+  const candidates = [
+    product.price,
+    product.final_price,
+    product.sale_price,
+    product.base_price,
+    product.variants?.[0]?.price,
+    product.variants?.[0]?.selling_price,
+  ];
+
+  for (const candidate of candidates) {
+    const value = Number(candidate);
+    if (Number.isFinite(value)) return value;
+  }
+
+  return 0;
+}
+
+function getProductDiscount(product) {
+  const rawDiscount =
+    product.discount ?? product.discount_percent ?? product.offer ?? 0;
+  const value = Number(rawDiscount);
+  return Number.isFinite(value) ? value : 0;
+}
+
+function parseProductData(response) {
+  if (Array.isArray(response)) return response;
+  if (Array.isArray(response?.data)) return response.data;
+  if (Array.isArray(response?.items)) return response.items;
+  if (Array.isArray(response?.products)) return response.products;
+  if (response?.data && typeof response.data === "object") {
+    return [response.data];
+  }
+  return [];
+}
+
+export function createProductCard(
+  product,
+  { home = false, rail = false, related = false } = {},
+) {
+  registerFavoriteProduct(product);
+  const productId = product.id;
+  const variant = (product.variants || []).find(
+    (candidate) =>
+      candidate &&
+      (candidate.id ?? candidate.variant_id) &&
+      (candidate.product_id == null ||
+        String(candidate.product_id) === String(productId)) &&
+      candidate.is_active !== 0 &&
+      candidate.stock !== 0,
+  );
+  const variantId = variant?.id ?? variant?.variant_id ?? "";
+  const title = getProductTitle(product);
+  const imageUrl = getProductImage(product);
+  const price = getProductPrice(product);
+  const originalPrice = Number(
+    product.original_price ?? product.base_price ?? price,
+  );
+  const discount = getProductDiscount(product);
+  const brand = getProductBrand(product);
+  const productPath = `${home ? "./" : "../"}details/index.html?id=${encodeURIComponent(productId)}`;
+  const railCardWidth = rail
+    ? "w-[220px] flex-shrink-0 sm:w-[240px] md:w-[260px]"
+    : "";
+  const relatedCardClass = related ? "related-product-card cursor-pointer" : "";
+  const favorite = isFavorite(productId);
+  const rating = Number(product.rating ?? product.average_rating ?? 0);
+  const reviewCount = Number(
+    product.review_count ?? product.reviews_count ?? product.rating_count ?? 0,
+  );
+  const roundedRating = Math.max(0, Math.min(5, Math.round(rating)));
+  const ratingMarkup =
+    rating > 0
+      ? `<span class="text-[11px] text-amber-500" aria-label="امتیاز ${rating} از 5">${"★".repeat(roundedRating)}${"☆".repeat(5 - roundedRating)}</span><span class="text-[10px] text-gray-500">(${formatPrice(reviewCount)})</span>`
+      : `<span class="text-[10px] text-gray-400">هنوز امتیازی ثبت نشده</span>`;
+
+  const discountMarkup =
+    discount > 0
+      ? `<span class="bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded-full">-${discount}%</span>`
+      : "";
+
+  const priceMarkup =
+    discount > 0 && originalPrice > price
+      ? `
+        <div class="flex items-center gap-2">
+          <span class="line-through text-gray-400 text-xs">${formatPrice(originalPrice)} تومان</span>
+          <span class="text-lg font-black text-red-600">${formatPrice(price)} تومان</span>
+        </div>
+      `
+      : `<span class="text-lg font-black text-red-600">${formatPrice(price)} تومان</span>`;
+
+  return `
+    <article class="product-card ${relatedCardClass} ${railCardWidth} group relative flex h-90 min-w-0 flex-col rounded-md border border-red-300 bg-white p-3 shadow-sm shadow-red-100 transition-all duration-300 hover:-translate-y-1 hover:shadow-md" data-product-id="${productId}">
+      <button type="button" class="favorite-toggle-btn absolute left-3 top-3 z-10 rounded-full bg-white/80 p-1 text-red-100 transition-colors hover:text-purple1" data-product-id="${productId}" aria-label="${favorite ? "حذف از علاقه‌مندی‌ها" : "افزودن به علاقه‌مندی‌ها"}" aria-pressed="${favorite}">
+        <svg class="h-5 w-5 ${favorite ? "fill-purple1" : "fill-none"}" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21l7.8-7.5 1.1-1.1a5.5 5.5 0 0 0-.1-7.8Z" /></svg>
+      </button>
+      <div class="relative mb-2 h-40 shrink-0 overflow-hidden bg-white">
+        <div class="absolute right-1 top-1 z-10 flex gap-2">
+          ${discountMarkup}
+        </div>
+        <a href="${productPath}" class="flex h-full items-center justify-center overflow-hidden p-2">
+          <img src="${imageUrl}" alt="${title}" class="h-full w-full object-contain transition-transform duration-300 group-hover:scale-105" onerror="this.onerror=null; this.src='${resolveFrontendAssetPath("./assets/images/products/achar.jpg")}';" />
+        </a>
+      </div>
+
+      <div class="flex min-h-0 flex-1 flex-col text-right" dir="rtl">
+        <a href="${productPath}" class="mb-1 block min-h-10 text-right text-sm font-extrabold leading-5 text-black-main line-clamp-2 hover:text-purple1 transition-colors">
+          ${title}
+        </a>
+        <span class="mb-1 truncate text-[10px] text-gray-400">${brand}</span>
+
+        <div class="mt-auto">
+          <div class="mb-1 flex min-h-7 items-center justify-between gap-1">
+            ${priceMarkup}
+          </div>
+          <div class="mb-2 flex h-5 items-center justify-end gap-1" dir="ltr">
+            ${ratingMarkup}
+          </div>
+          <button type="button" class="add-to-cart-btn flex h-9 w-full items-center justify-center gap-2 rounded-md bg-purple1 px-2 text-xs font-bold text-white transition-all hover:opacity-90 disabled:opacity-60" data-product-id="${productId}" data-variant-id="${variantId}">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 3h2l2.2 11.2a2 2 0 0 0 2 1.6h8.9a2 2 0 0 0 1.9-1.4L22 8H6M10 21a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm8 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" /></svg>
+            افزودن به سبد خرید
+          </button>
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+function createHomeProductCard(product) {
+  return createProductCard(product, { home: true, rail: true });
+}
+
+function renderHomeProductTrack(trackId, products) {
+  const track = document.getElementById(trackId);
+  if (!track) return;
+
+  const selectedProducts = Array.isArray(products) ? products.slice(0, 8) : [];
+
+  if (!selectedProducts.length) {
+    track.innerHTML = `
+      <div class="w-full rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-10 text-center text-gray-500 font-bold">
+        محصولی برای نمایش وجود ندارد.
+      </div>
+    `;
+    return;
+  }
+
+  track.innerHTML = selectedProducts.map(createHomeProductCard).join("");
+}
+
+function setupProductCardSlider(trackId, previousButtonId, nextButtonId) {
+  const track = document.getElementById(trackId);
+  const viewport = track?.parentElement;
+  const previousButton = document.getElementById(previousButtonId);
+  const nextButton = document.getElementById(nextButtonId);
+  if (!track || !viewport) return;
+  if (track.dataset.sliderInitialized === "true") {
+    track.resetProductCardSlider?.();
+    return;
+  }
+
+  let currentIndex = 0;
+  let activePointerId = null;
+  let dragStartX = 0;
+  let dragStartOffset = 0;
+  let dragCurrentOffset = 0;
+  let dragMoved = false;
+  let suppressClickUntil = 0;
+
+  viewport.style.touchAction = "pan-y";
+  viewport.style.userSelect = "none";
+  viewport.style.cursor = "grab";
+
+  const getMetrics = () => {
+    const cards = Array.from(track.children).filter(
+      (card) =>
+        card.hasAttribute("data-product-id") ||
+        card.hasAttribute("data-category-id") ||
+        card.hasAttribute("data-id"),
+    );
+    if (!cards.length) return null;
+
+    const gap = Number.parseFloat(getComputedStyle(track).columnGap) || 0;
+    const step = cards[0].getBoundingClientRect().width + gap;
+    const maxOffset = Math.max(0, track.scrollWidth - viewport.clientWidth);
+
+    return {
+      step,
+      maxOffset,
+      maxIndex: step ? Math.ceil(maxOffset / step) : 0,
+      direction: getComputedStyle(track).direction,
+    };
+  };
+
+  const applyOffset = (offset, direction, maxOffset) => {
+    const boundedOffset = Math.max(0, Math.min(offset, maxOffset));
+    const signedOffset = direction === "rtl" ? boundedOffset : -boundedOffset;
+    track.style.transform = `translateX(${signedOffset}px)`;
+    return boundedOffset;
+  };
+
+  const getNearestIndex = (offset, step, maxOffset) => {
+    if (!step) return 0;
+    const lowerIndex = Math.floor(offset / step);
+    const upperIndex = Math.min(lowerIndex + 1, Math.ceil(maxOffset / step));
+    const lowerOffset = Math.min(lowerIndex * step, maxOffset);
+    const upperOffset = Math.min(upperIndex * step, maxOffset);
+    return offset - lowerOffset <= upperOffset - offset
+      ? lowerIndex
+      : upperIndex;
+  };
+
+  const updateSlider = () => {
+    const metrics = getMetrics();
+    if (!metrics) {
+      currentIndex = 0;
+      track.style.transform = "";
+      if (previousButton) previousButton.disabled = true;
+      if (nextButton) nextButton.disabled = true;
+      return;
+    }
+
+    currentIndex = Math.min(currentIndex, metrics.maxIndex);
+    const offset = Math.min(currentIndex * metrics.step, metrics.maxOffset);
+    applyOffset(offset, metrics.direction, metrics.maxOffset);
+    if (previousButton) previousButton.disabled = currentIndex === 0;
+    if (nextButton) nextButton.disabled = currentIndex >= metrics.maxIndex;
+  };
+
+  previousButton?.addEventListener("click", () => {
+    currentIndex = Math.max(0, currentIndex - 1);
+    updateSlider();
+  });
+  nextButton?.addEventListener("click", () => {
+    currentIndex += 1;
+    updateSlider();
+  });
+  viewport.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0 && event.pointerType === "mouse") return;
+    if (event.target.closest("button, input, select, textarea")) return;
+
+    const metrics = getMetrics();
+    if (!metrics || metrics.maxOffset === 0) return;
+
+    activePointerId = event.pointerId;
+    dragStartX = event.clientX;
+    dragStartOffset = Math.min(currentIndex * metrics.step, metrics.maxOffset);
+    dragCurrentOffset = dragStartOffset;
+    dragMoved = false;
+    track.style.transition = "none";
+    viewport.setPointerCapture(event.pointerId);
+  });
+  viewport.addEventListener("pointermove", (event) => {
+    if (event.pointerId !== activePointerId) return;
+
+    const deltaX = event.clientX - dragStartX;
+    if (!dragMoved && Math.abs(deltaX) < 5) return;
+    dragMoved = true;
+    event.preventDefault();
+
+    const metrics = getMetrics();
+    if (!metrics) return;
+    const directionDelta = metrics.direction === "rtl" ? deltaX : -deltaX;
+    const offset = Math.max(
+      0,
+      Math.min(dragStartOffset + directionDelta, metrics.maxOffset),
+    );
+    dragCurrentOffset = offset;
+    applyOffset(offset, metrics.direction, metrics.maxOffset);
+    viewport.style.cursor = "grabbing";
+  });
+  const finishDrag = (event) => {
+    if (event.pointerId !== activePointerId) return;
+    const wasDragged = dragMoved;
+    activePointerId = null;
+    dragMoved = false;
+    viewport.style.cursor = "grab";
+    track.style.transition = "";
+
+    const metrics = getMetrics();
+    if (metrics) {
+      currentIndex = getNearestIndex(
+        dragCurrentOffset,
+        metrics.step,
+        metrics.maxOffset,
+      );
+    }
+    if (wasDragged) suppressClickUntil = Date.now() + 250;
+    updateSlider();
+  };
+  viewport.addEventListener("pointerup", finishDrag);
+  viewport.addEventListener("pointercancel", finishDrag);
+  viewport.addEventListener(
+    "click",
+    (event) => {
+      if (Date.now() > suppressClickUntil) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      suppressClickUntil = 0;
+    },
+    true,
+  );
+  viewport.addEventListener("dragstart", (event) => event.preventDefault());
+  window.addEventListener("resize", updateSlider, { passive: true });
+  track.resetProductCardSlider = () => {
+    currentIndex = 0;
+    updateSlider();
+  };
+  track.dataset.sliderInitialized = "true";
+  updateSlider();
+}
+
+window.setupProductCardSlider = setupProductCardSlider;
+
+function renderProducts(products) {
+  const productContainer = document.getElementById("product-container");
+  if (!productContainer) return;
+
+  if (!products.length) {
+    productContainer.innerHTML = `
+      <div class="col-span-full rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-12 text-center text-lg font-bold text-gray-500">
+        محصولی برای نمایش وجود ندارد.
+      </div>
+    `;
+    renderPagination(1);
+    return;
+  }
+
+  const totalPages = Math.max(1, Math.ceil(products.length / PAGE_SIZE));
+  const page = Math.min(
+    Math.max(1, Number(document.body.dataset.currentPage) || 1),
+    totalPages,
+  );
+  const startIndex = (page - 1) * PAGE_SIZE;
+  const paginatedProducts = products.slice(startIndex, startIndex + PAGE_SIZE);
+
+  productContainer.innerHTML = paginatedProducts
+    .map(createProductCard)
+    .join("");
+  renderPagination(totalPages, page);
+}
+
+function renderPagination(totalPages, currentPage = 1) {
+  const paginationContainer = document.getElementById("pagination-container");
+  if (!paginationContainer) return;
+
+  const pages = Array.from({ length: totalPages }, (_, index) => index + 1);
+
+  paginationContainer.innerHTML = pages
+    .map((page) => {
+      const activeClass =
+        page === currentPage
+          ? "bg-purple1 text-white"
+          : "bg-white text-gray-700 border border-gray-200 hover:bg-yasi";
+      return `
+        <button type="button" data-page="${page}" class="page-btn h-10 min-w-10 rounded-full px-3 text-sm font-bold transition-all ${activeClass}">
+          ${page}
+        </button>
+      `;
+    })
+    .join("");
+
+  paginationContainer.querySelectorAll(".page-btn").forEach((button) => {
+    button.addEventListener("click", () => {
+      const selectedPage = Number(button.dataset.page || 1);
+      document.body.dataset.currentPage = String(selectedPage);
+      const state = window.__productPageState || {};
+      renderProducts(state.filteredProducts || []);
+    });
+  });
+}
+
+function isProductMatch(product, filters) {
+  const searchText = normalizeText(filters.search);
+  const nameText = normalizeText(getProductTitle(product));
+  const brandText = normalizeText(getProductBrand(product));
+
+  if (
+    searchText &&
+    !nameText.includes(searchText) &&
+    !brandText.includes(searchText)
+  ) {
+    return false;
+  }
+
+  if (filters.discountOnly && getProductDiscount(product) <= 0) {
+    return false;
+  }
+
+  if (filters.brand !== "all") {
+    const productBrand = normalizeText(getProductBrand(product));
+    if (productBrand !== normalizeText(filters.brand)) {
+      return false;
+    }
+  }
+
+  if (filters.stock !== "all") {
+    const inStock = Number(product.stock ?? product.quantity ?? 1) > 0;
+    if (filters.stock === "in-stock" && !inStock) return false;
+    if (filters.stock === "out-of-stock" && inStock) return false;
+  }
+
+  if (!matchesSelectedCategory(product, filters.category)) {
+    return false;
+  }
+
+  return true;
+}
+
+function applyFilters(products, filters = readFilterControls()) {
+  const state = window.__productPageState || {};
+  const source = Array.isArray(state.allProducts) ? state.allProducts : products;
+  const nextList = source.filter((product) =>
+    isProductMatch(product, filters),
+  );
+  window.__productPageState = {
+    ...state,
+    filteredProducts: nextList,
+    categoryFilter: filters.category,
+    appliedFilters: { ...filters },
+  };
+  updateCategoryFilterChip(filters.category);
+  updateCategoryFilterUrl(filters.category);
+  updateFilterTrigger(filters);
+  document.body.dataset.currentPage = "1";
+  renderProducts(nextList);
+}
+
+async function initProductsPage() {
+  const productContainer = document.getElementById("product-container");
+  const hasProductListPage = !!productContainer;
+
+  try {
+    const response = await fetchWithAuth("/products");
+    const products = parseProductData(response);
+    const finalProducts = products.length ? products : [];
+    const categories = hasProductListPage ? await fetchCategories() : [];
+    const categoryFilter = hasProductListPage
+      ? getCategoryFilterFromUrl(categories)
+      : null;
+    populateCategoryFilter(categories, categoryFilter);
+    window.__productPageState = {
+      allProducts: finalProducts,
+      filteredProducts: finalProducts,
+      categoryFilter,
+    };
+    document.body.dataset.currentPage = "1";
+
+    if (document.getElementById("allTrack")) {
+      renderHomeProductTrack("specialTrack", finalProducts);
+      renderHomeProductTrack("allTrack", finalProducts);
+      setupProductCardSlider("specialTrack", "specialNext", "specialPrev");
+      setupProductCardSlider("allTrack", "allPrev", "allNext");
+    }
+    if (hasProductListPage) {
+      if (categoryFilter) {
+        const categorySelect = document.getElementById("filter-category-select");
+        if (categorySelect) categorySelect.value = categoryFilter.id || "all";
+      }
+      applyFilters(finalProducts);
+    }
+  } catch (error) {
+    console.error("خطا در دریافت محصولات:", error);
+    const fallbackProducts = [];
+    window.__productPageState = {
+      allProducts: fallbackProducts,
+      filteredProducts: fallbackProducts,
+    };
+    if (document.getElementById("allTrack")) {
+      renderHomeProductTrack("specialTrack", fallbackProducts);
+      renderHomeProductTrack("allTrack", fallbackProducts);
+      setupProductCardSlider("specialTrack", "specialNext", "specialPrev");
+      setupProductCardSlider("allTrack", "allPrev", "allNext");
+    }
+    if (hasProductListPage) {
+      renderProducts(fallbackProducts);
+    }
+  }
+
+  const resetButton = document.getElementById("reset-filter-btn");
+  const applyButton = document.getElementById("apply-filter-btn");
+  const closeButton = document.getElementById("close-filter-modal-btn");
+  const filterModal = document.getElementById("filter-modal");
+
+  resetButton?.addEventListener("click", () => {
+    writeFilterControls({});
+    applyFilters(undefined, readFilterControls());
+    filterModal?.classList.add("opacity-0", "pointer-events-none");
+  });
+
+  applyButton?.addEventListener("click", () => {
+    applyFilters(undefined, readFilterControls());
+    filterModal?.classList.add("opacity-0", "pointer-events-none");
+  });
+
+  document.getElementById("clear-category-filter-btn")?.addEventListener(
+    "click",
+    () => {
+      const appliedFilters = {
+        ...(window.__productPageState?.appliedFilters || {}),
+        category: null,
+      };
+      writeFilterControls(appliedFilters);
+      applyFilters(undefined, appliedFilters);
+    },
+  );
+
+  const closeFilterModal = () => {
+    writeFilterControls(window.__productPageState?.appliedFilters || {});
+    filterModal?.classList.add("opacity-0", "pointer-events-none");
+  };
+
+  closeButton?.addEventListener("click", closeFilterModal);
+  filterModal?.addEventListener("click", (event) => {
+    if (event.target === filterModal) closeFilterModal();
+  });
+
+  const filterTrigger = document.getElementById("filter-trigger");
+
+  filterTrigger?.addEventListener("click", () => {
+    writeFilterControls(window.__productPageState?.appliedFilters || {});
+    filterModal?.classList.remove("opacity-0", "pointer-events-none");
+  });
+
+  const cartBadge = document.getElementById("cart-badge-count");
+  if (cartBadge) {
+    const currentCart = JSON.parse(localStorage.getItem("cart") || "[]");
+    const total = currentCart.reduce(
+      (sum, item) => sum + Number(item.quantity || 0),
+      0,
+    );
+    cartBadge.textContent = String(total);
+  }
+}
 
 document.addEventListener("DOMContentLoaded", () => {
-  // ==========================================================================
-  // ۱. متغیرها و وضعیت اولیه (State Management)
-  // ==========================================================================
-  let currentPage = 1;
-  const itemsPerPage = 12;
-
-  // کپی پشتیبان از لیست اصلی محصولات بدون تغییر در داده مرجع
-  const masterProductsList = [...(allProducts || [])];
-
-  // لیست آرایه محصولات فیلترشده که در گرید قرار می‌گیرند
-  let filteredProducts = [...masterProductsList];
-
-  // المان‌های کانتینر اصلی محصولات
-  const productContainer =
-    document.querySelector("#product-container") ||
-    document.getElementById("special-products-grid") ||
-    document.getElementById("products-grid");
-
-  // کانتینر علاقه‌مندی‌ها
-  const favoritesContainer = document.getElementById("favorites-container");
-
-  // المان‌های اسلایدر محصولات ویژه
-  const specialTrack = document.getElementById("specialTrack");
-  const specialPrev = document.getElementById("specialPrev");
-  const specialNext = document.getElementById("specialNext");
-
-  // المان‌های اسلایدر همه محصولات
-  const allTrack = document.getElementById("allTrack");
-  const allPrev = document.getElementById("allPrev");
-  const allNext = document.getElementById("allNext");
-
-  // المان‌های مودال فیلتر
-  const filterModal = document.getElementById("filter-modal");
-  const closeFilterModalBtn = document.getElementById("close-filter-modal-btn");
-  const applyFilterBtn = document.getElementById("apply-filter-btn");
-  const resetFilterBtn = document.getElementById("reset-filter-btn");
-
-  // ورودی‌های فیلتر
-  const filterSearchInput = document.getElementById("filter-search-input");
-  const filterDiscountSelect = document.getElementById(
-    "filter-discount-select",
-  );
-  const filterPriceRange = document.getElementById("filter-price-range");
-  const filterPriceValue = document.getElementById("filter-price-value");
-
-  // ==========================================================================
-  // ۲. توابع کمکی (Helper Functions)
-  // ==========================================================================
-
-  // تبدیل اعداد فارسی/متن به عدد انگلیسی جهت محاسبات ریاضی
-  function parsePrice(priceStr) {
-    if (!priceStr) return 0;
-    const persianDigits = [
-      /۰/g,
-      /۱/g,
-      /۲/g,
-      /۳/g,
-      /۴/g,
-      /۵/g,
-      /۶/g,
-      /۷/g,
-      /۸/g,
-      /۹/g,
-    ];
-    let normalizedStr = String(priceStr);
-    for (let i = 0; i < 10; i++) {
-      normalizedStr = normalizedStr.replace(persianDigits[i], i);
-    }
-    const cleanStr = normalizedStr.replace(/[^0-9]/g, "");
-    return parseInt(cleanStr, 10) || 0;
-  }
-
-  // محاسبه حداکثر قیمت محصولات جهت تنظیم دامنه اسلایدر قیمت
-  const allPrices = masterProductsList.map((p) => parsePrice(p.price));
-  const maxProductPrice = allPrices.length ? Math.max(...allPrices) : 10000000;
-
-  // تنظیم ویژگی‌های Range اسلایدر قیمت
-  if (filterPriceRange) {
-    filterPriceRange.min = "0";
-    filterPriceRange.max = maxProductPrice.toString();
-    filterPriceRange.step = "50000";
-    filterPriceRange.value = maxProductPrice.toString();
-  }
-
-  // به‌روزرسانی برچسب نشان‌دهنده قیمت در مودال فیلتر
-  function updatePriceLabel(val) {
-    if (!filterPriceValue) return;
-    const numericVal = parseInt(val, 10);
-    if (numericVal >= maxProductPrice || numericVal === 0) {
-      filterPriceValue.textContent = "همه قیمت‌ها";
-    } else {
-      filterPriceValue.textContent = `تا ${numericVal.toLocaleString("fa-IR")} تومان`;
-    }
-  }
-
-  filterPriceRange?.addEventListener("input", (e) =>
-    updatePriceLabel(e.target.value),
-  );
-
-  // ==========================================================================
-  // ۳. مدیریت مودال فیلتر (Modal Controls)
-  // ==========================================================================
-  const filterButtons = Array.from(document.querySelectorAll("button")).filter(
-    (btn) =>
-      btn.textContent.trim().includes("فیلتر") &&
-      btn.id !== "apply-filter-btn" &&
-      btn.id !== "reset-filter-btn",
-  );
-
-  function openFilterModal() {
-    if (!filterModal) return;
-    filterModal.classList.remove("opacity-0", "pointer-events-none");
-    filterModal.querySelector("div")?.classList.remove("scale-95");
-    document.body.classList.add("overflow-hidden");
-  }
-
-  function closeFilterModal() {
-    if (!filterModal) return;
-    filterModal.classList.add("opacity-0", "pointer-events-none");
-    filterModal.querySelector("div")?.classList.add("scale-95");
-    document.body.classList.remove("overflow-hidden");
-  }
-
-  filterButtons.forEach((btn) =>
-    btn.addEventListener("click", openFilterModal),
-  );
-  closeFilterModalBtn?.addEventListener("click", closeFilterModal);
-  filterModal?.addEventListener("click", (e) => {
-    if (e.target === filterModal) closeFilterModal();
-  });
-
-  // ==========================================================================
-  // ۴. رندر اسلایدر محصولات ویژه (Special Products Slider)
-  // ==========================================================================
-  function renderSpecialSlider() {
-    if (!specialTrack) return;
-    specialTrack.innerHTML = "";
-
-    const productsToRender = masterProductsList.slice(0, 7);
-
-    productsToRender.forEach((item) => {
-      const isLiked = item.like === true || item.like === "true";
-      specialTrack.insertAdjacentHTML(
-        "beforeend",
-        `
-        <div data-id="${item.id}" class="product-card min-w-[260px] sm:min-w-[280px] max-w-[280px] group relative bg-white border border-purple1/30 rounded-2xl p-4 flex flex-col justify-between transition-all duration-300 hover:shadow-lg cursor-pointer flex-shrink-0">
-          <div>
-            <div class="relative bg-gray-100 rounded-xl aspect-square flex items-center justify-center overflow-hidden mb-4">
-              ${item.discount ? `<span class="absolute top-3 left-3 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-lg z-10">${item.discount}٪ تخفیف</span>` : ""}
-              <button data-id="${item.id}" class="like-btn absolute top-3 right-3 text-purple1 hover:scale-110 transition-transform z-10">
-                <svg class="w-6 h-6 stroke-purple1 ${isLiked ? "fill-purple1" : "fill-none"}" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
-                </svg>
-              </button>
-              <img src="${item.image}" alt="${item.title}" class="w-full h-full object-contain">
-            </div>
-            <div class="text-center space-y-1">
-              <h3 class="font-bold text-black-main text-base sm:text-lg truncate">${item.title}</h3>
-              <p class="text-xs text-gray-primary">کد محصول: ${item.id}</p>
-              <p class="text-base font-extrabold text-purple1 pt-1">${item.price} <span class="text-xs font-normal">تومان</span></p>
-            </div>
-          </div>
-          <button class="add-to-cart-btn w-full mt-4 bg-purple1 text-white py-2.5 px-4 rounded-xl font-medium flex items-center justify-center gap-2 hover:bg-opacity-90 active:scale-95 transition-all">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/>
-            </svg>
-            <span class="text-xs sm:text-sm">افزودن به سبد خرید</span>
-          </button>
-        </div>
-      `,
-      );
-    });
-
-    setupSpecialSlider();
-  }
-
-  // تنظیم حرکات و محاسبه موقعیت اسلایدر محصولات ویژه
-  function setupSpecialSlider() {
-    if (!specialTrack || !specialPrev || !specialNext) return;
-    let currentIndex = 0;
-
-    function getCardWidth() {
-      const card = specialTrack.querySelector(".product-card");
-      if (!card) return 300;
-      const style = window.getComputedStyle(specialTrack);
-      const gap = parseInt(style.gap || "16", 10);
-      return card.offsetWidth + gap;
-    }
-
-    function getMaxIndex() {
-      const cardWidth = getCardWidth();
-      const visibleWidth = specialTrack.parentElement.offsetWidth;
-      const totalWidth = specialTrack.scrollWidth;
-      const maxScroll = totalWidth - visibleWidth;
-      return Math.max(0, Math.ceil(maxScroll / cardWidth));
-    }
-
-    function updateSliderPosition() {
-      const cardWidth = getCardWidth();
-      specialTrack.style.transform = `translateX(${currentIndex * cardWidth}px)`;
-      specialPrev.disabled = currentIndex <= 0;
-      specialNext.disabled = currentIndex >= getMaxIndex();
-    }
-
-    specialNext.onclick = () => {
-      if (currentIndex < getMaxIndex()) {
-        currentIndex++;
-        updateSliderPosition();
-      }
-    };
-
-    specialPrev.onclick = () => {
-      if (currentIndex > 0) {
-        currentIndex--;
-        updateSliderPosition();
-      }
-    };
-
-    updateSliderPosition();
-  }
-
-  // ==========================================================================
-  // ۵. رندر اسلایدر همه محصولات (All Products Slider)
-  // ==========================================================================
-  function renderAllProductsSlider() {
-    if (!allTrack) return;
-    allTrack.innerHTML = "";
-
-    const productsToRender = masterProductsList.slice(0, 10);
-
-    productsToRender.forEach((item) => {
-      const isLiked = item.like === true || item.like === "true";
-      allTrack.insertAdjacentHTML(
-        "beforeend",
-        `
-        <div data-id="${item.id}" class="product-card min-w-[260px] sm:min-w-[280px] max-w-[280px] group relative bg-white border border-purple1/30 rounded-2xl p-4 flex flex-col justify-between transition-all duration-300 hover:shadow-lg cursor-pointer flex-shrink-0">
-          <div>
-            <div class="relative bg-gray-100 rounded-xl aspect-square flex items-center justify-center overflow-hidden mb-4">
-              ${item.discount ? `<span class="absolute top-3 left-3 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-lg z-10">${item.discount}٪ تخفیف</span>` : ""}
-              <button data-id="${item.id}" class="like-btn absolute top-3 right-3 text-purple1 hover:scale-110 transition-transform z-10">
-                <svg class="w-6 h-6 stroke-purple1 ${isLiked ? "fill-purple1" : "fill-none"}" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
-                </svg>
-              </button>
-              <img src="${item.image}" alt="${item.title}" class="w-full h-full object-contain">
-            </div>
-            <div class="text-center space-y-1">
-              <h3 class="font-bold text-black-main text-base sm:text-lg truncate">${item.title}</h3>
-              <p class="text-xs text-gray-primary">کد محصول: ${item.id}</p>
-              <p class="text-base font-extrabold text-purple1 pt-1">${item.price} <span class="text-xs font-normal">تومان</span></p>
-            </div>
-          </div>
-          <button class="add-to-cart-btn w-full mt-4 bg-purple1 text-white py-2.5 px-4 rounded-xl font-medium flex items-center justify-center gap-2 hover:bg-opacity-90 active:scale-95 transition-all">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/>
-            </svg>
-            <span class="text-xs sm:text-sm">افزودن به سبد خرید</span>
-          </button>
-        </div>
-      `,
-      );
-    });
-
-    setupAllProductsSlider();
-  }
-
-  // تنظیم حرکات اسلایدر عمومی محصولات
-  function setupAllProductsSlider() {
-    if (!allTrack || !allPrev || !allNext) return;
-    let currentIndex = 0;
-
-    function getCardWidth() {
-      const card = allTrack.querySelector(".product-card");
-      if (!card) return 300;
-      const style = window.getComputedStyle(allTrack);
-      const gap = parseInt(style.gap || "16", 10);
-      return card.offsetWidth + gap;
-    }
-
-    function getMaxIndex() {
-      const cardWidth = getCardWidth();
-      const visibleWidth = allTrack.parentElement.offsetWidth;
-      const totalWidth = allTrack.scrollWidth;
-      const maxScroll = totalWidth - visibleWidth;
-      return Math.max(0, Math.ceil(maxScroll / cardWidth));
-    }
-
-    function updateSliderPosition() {
-      const cardWidth = getCardWidth();
-      allTrack.style.transform = `translateX(${currentIndex * cardWidth}px)`;
-      allPrev.disabled = currentIndex <= 0;
-      allNext.disabled = currentIndex >= getMaxIndex();
-    }
-
-    allNext.onclick = () => {
-      if (currentIndex < getMaxIndex()) {
-        currentIndex++;
-        updateSliderPosition();
-      }
-    };
-
-    allPrev.onclick = () => {
-      if (currentIndex > 0) {
-        currentIndex--;
-        updateSliderPosition();
-      }
-    };
-
-    updateSliderPosition();
-  }
-
-  // ==========================================================================
-  // ۶. رندر گرید محصولات اصلی و صفحه بندی (Grid + Pagination)
-  // ==========================================================================
-  function renderProducts() {
-    if (!productContainer) return;
-    productContainer.innerHTML = "";
-
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    const paginatedProducts = filteredProducts.slice(startIndex, endIndex);
-
-    if (paginatedProducts.length === 0) {
-      productContainer.innerHTML = `
-        <div class="col-span-full text-center py-12 text-gray-500 font-bold">
-          هیچ محصولی با مشخصات انتخاب شده یافت نشد.
-        </div>
-      `;
-      updatePagination();
-      return;
-    }
-
-    paginatedProducts.forEach((item) => {
-      const isLiked = item.like === true || item.like === "true";
-      productContainer.insertAdjacentHTML(
-        "beforeend",
-        `
-        <div data-id="${item.id}" class="product-card group relative bg-white border border-purple1/30 rounded-2xl p-4 flex flex-col justify-between transition-all duration-300 hover:shadow-lg cursor-pointer">
-          <div>
-            <div class="relative bg-gray-100 rounded-xl aspect-square flex items-center justify-center overflow-hidden mb-4">
-              ${item.discount ? `<span class="absolute top-3 left-3 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-lg z-10">${item.discount}٪ تخفیف</span>` : ""}
-              <button data-id="${item.id}" class="like-btn absolute top-3 right-3 text-purple1 hover:scale-110 transition-transform z-10">
-                <svg class="w-6 h-6 stroke-purple1 ${isLiked ? "fill-purple1" : "fill-none"}" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
-                </svg>
-              </button>
-              <img src="${item.image}" alt="${item.title}" class="w-full h-full object-contain">
-            </div>
-            <div class="text-center space-y-1">
-              <h3 class="font-bold text-black-main text-lg">${item.title}</h3>
-              <p class="text-xs text-gray-primary">کد محصول: ${item.id}</p>
-              <p class="text-base font-extrabold text-purple1 pt-1">${item.price} <span class="text-xs font-normal">تومان</span></p>
-            </div>
-          </div>
-          <button class="add-to-cart-btn w-full mt-4 bg-purple1 text-white py-2.5 px-4 rounded-xl font-medium flex items-center justify-center gap-2 hover:bg-opacity-90 active:scale-95 transition-all">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/>
-            </svg>
-            <span>افزودن به سبد خرید</span>
-          </button>
-        </div>
-      `,
-      );
-    });
-
-    updatePagination();
-  }
-
-  // ایجاد و به‌روزرسانی دکمه‌های صفحه‌بندی
-  function updatePagination() {
-    const paginationContainer =
-      document.querySelector("#pagination-container") ||
-      document.querySelector(".dir-ltr");
-    if (!paginationContainer) return;
-
-    paginationContainer.innerHTML = "";
-    const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
-
-    if (totalPages <= 1) return;
-
-    function scrollToContainer() {
-      if (productContainer) {
-        window.scrollTo({
-          top: productContainer.offsetTop - 100,
-          behavior: "smooth",
-        });
-      }
-    }
-
-    // دکمه قبلی
-    const prevBtn = document.createElement("button");
-    prevBtn.className = `p-2.5 rounded-lg border transition-colors ${
-      currentPage === 1
-        ? "border-gray-200 text-gray-300 cursor-not-allowed"
-        : "border-purple1 text-purple1 hover:bg-yasi cursor-pointer"
-    }`;
-    prevBtn.disabled = currentPage === 1;
-    prevBtn.innerHTML = `
-      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" />
-      </svg>
-    `;
-    prevBtn.onclick = () => {
-      if (currentPage > 1) {
-        currentPage--;
-        renderProducts();
-        scrollToContainer();
-      }
-    };
-    paginationContainer.appendChild(prevBtn);
-
-    // محاسبه شماره صفحات
-    const pageNumbers = [];
-    for (let i = 1; i <= totalPages; i++) {
-      if (
-        i === 1 ||
-        i === totalPages ||
-        (i >= currentPage - 1 && i <= currentPage + 1)
-      ) {
-        pageNumbers.push(i);
-      } else if (pageNumbers[pageNumbers.length - 1] !== "...") {
-        pageNumbers.push("...");
-      }
-    }
-
-    pageNumbers.forEach((page) => {
-      if (page === "...") {
-        const dots = document.createElement("span");
-        dots.className = "px-2 text-gray-400 tracking-widest";
-        dots.textContent = "...";
-        paginationContainer.appendChild(dots);
-      } else {
-        const btn = document.createElement("button");
-        btn.textContent = page;
-        btn.className =
-          page === currentPage
-            ? "w-10 h-10 rounded-lg border border-purple1 bg-purple1 text-white font-semibold cursor-pointer"
-            : "w-10 h-10 rounded-lg border border-gray-300/40 text-gray-600 font-semibold hover:border-purple1 hover:text-purple1 cursor-pointer";
-        btn.onclick = () => {
-          currentPage = page;
-          renderProducts();
-          scrollToContainer();
-        };
-        paginationContainer.appendChild(btn);
-      }
-    });
-
-    // دکمه بعدی
-    const nextBtn = document.createElement("button");
-    nextBtn.className = `p-2.5 rounded-lg border transition-colors ${
-      currentPage === totalPages
-        ? "border-gray-200 text-gray-300 cursor-not-allowed"
-        : "border-purple1 text-purple1 hover:bg-yasi cursor-pointer"
-    }`;
-    nextBtn.disabled = currentPage === totalPages;
-    nextBtn.innerHTML = `
-      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
-      </svg>
-    `;
-    nextBtn.onclick = () => {
-      if (currentPage < totalPages) {
-        currentPage++;
-        renderProducts();
-        scrollToContainer();
-      }
-    };
-    paginationContainer.appendChild(nextBtn);
-  }
-
-  // ==========================================================================
-  // ۷. منطق و فیلتر کردن اطلاعات (Filtering Logic)
-  // ==========================================================================
-  function applyFilters() {
-    const searchQuery = filterSearchInput?.value.trim().toLowerCase() || "";
-    const discountFilter = filterDiscountSelect?.value || "all";
-    const selectedMaxPrice = parseInt(
-      filterPriceRange?.value || maxProductPrice.toString(),
-      10,
-    );
-
-    filteredProducts = masterProductsList.filter((product) => {
-      const matchesSearch =
-        !searchQuery || product.title.toLowerCase().includes(searchQuery);
-
-      const hasDiscount = product.discount && Number(product.discount) > 0;
-      const matchesDiscount =
-        discountFilter === "all" ||
-        (discountFilter === "discounted" && hasDiscount) ||
-        (discountFilter === "normal" && !hasDiscount);
-
-      const prodPrice = parsePrice(product.price);
-      const matchesPrice =
-        selectedMaxPrice >= maxProductPrice || prodPrice <= selectedMaxPrice;
-
-      return matchesSearch && matchesDiscount && matchesPrice;
-    });
-
-    currentPage = 1;
-    renderProducts();
-    closeFilterModal();
-  }
-
-  function resetFilters() {
-    if (filterSearchInput) filterSearchInput.value = "";
-    if (filterDiscountSelect) filterDiscountSelect.value = "all";
-    if (filterPriceRange) {
-      filterPriceRange.value = maxProductPrice.toString();
-      updatePriceLabel(maxProductPrice);
-    }
-
-    filteredProducts = [...masterProductsList];
-    currentPage = 1;
-    renderProducts();
-    closeFilterModal();
-  }
-
-  applyFilterBtn?.addEventListener("click", applyFilters);
-  resetFilterBtn?.addEventListener("click", resetFilters);
-
-  // ==========================================================================
-  // ۸. مدیریت بخش علاقه‌مندی‌ها (Favorites Section)
-  // ==========================================================================
-  function renderFavorites() {
-    if (!favoritesContainer) return;
-
-    const likedProducts = masterProductsList.filter(
-      (p) => p.like === true || p.like === "true",
-    );
-
-    favoritesContainer.innerHTML = "";
-
-    if (likedProducts.length === 0) {
-      favoritesContainer.innerHTML = `
-        <div class="col-span-full text-center py-10 text-gray-400 font-medium bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-          هیچ محصولی در لیست علاقه‌مندی‌های شما قرار ندارد.
-        </div>
-      `;
-      return;
-    }
-
-    likedProducts.forEach((item) => {
-      favoritesContainer.insertAdjacentHTML(
-        "beforeend",
-        `
-        <div data-id="${item.id}" class="product-card group relative bg-white border border-purple1/30 rounded-2xl p-4 flex flex-col justify-between transition-all duration-300 hover:shadow-lg cursor-pointer">
-          <div>
-            <div class="relative bg-gray-100 rounded-xl aspect-square flex items-center justify-center overflow-hidden mb-4">
-              ${item.discount ? `<span class="absolute top-3 left-3 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-lg z-10">${item.discount}٪ تخفیف</span>` : ""}
-              <button data-id="${item.id}" class="like-btn absolute top-3 right-3 text-purple1 hover:scale-110 transition-transform z-10">
-                <svg class="w-6 h-6 stroke-purple1 fill-purple1" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
-                </svg>
-              </button>
-              <img src="${item.image}" alt="${item.title}" class="w-full h-full object-contain">
-            </div>
-            <div class="text-center space-y-1">
-              <h3 class="font-bold text-black-main text-lg truncate">${item.title}</h3>
-              <p class="text-xs text-gray-primary">کد محصول: ${item.id}</p>
-              <p class="text-base font-extrabold text-purple1 pt-1">${item.price} <span class="text-xs font-normal">تومان</span></p>
-            </div>
-          </div>
-          <button class="add-to-cart-btn w-full mt-4 bg-purple1 text-white py-2.5 px-4 rounded-xl font-medium flex items-center justify-center gap-2 hover:bg-opacity-90 active:scale-95 transition-all">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/>
-            </svg>
-            <span>افزودن به سبد خرید</span>
-          </button>
-        </div>
-      `,
-      );
-    });
-  }
-
-  // ==========================================================================
-  // ۹. اسلایدر و رندر محصولات مرتبط (Related Products Slider)
-  // ==========================================================================
-  function setupRelatedProducts(currentCategory, currentProductId) {
-    const track = document.getElementById("specialTrack");
-    const prevBtn = document.getElementById("specialPrev");
-    const nextBtn = document.getElementById("specialNext");
-
-    if (!track) return;
-
-    // ۱. فیلتر محصولات مرتبط (هم‌دسته با محصول فعلی و حذف خود محصول فعلی)
-    let related = (allProducts || []).filter(
-      (p) =>
-        p.category === currentCategory &&
-        String(p.id) !== String(currentProductId),
-    );
-
-    // اگر محصول هم‌دسته‌ای یافت نشد، سایر محصولات را نشان بده
-    if (related.length === 0) {
-      related = (allProducts || []).filter(
-        (p) => String(p.id) !== String(currentProductId),
-      );
-    }
-
-    // ۲. رندر کارت‌های محصول در اسلایدر
-    track.innerHTML = related
-      .map(
-        (item) => `
-    <div data-id="${item.id}" 
-       class="related-product-card flex-shrink-0 w-[220px] sm:w-[260px] bg-white border border-gray-100 rounded-2xl p-4 flex flex-col justify-between hover:shadow-lg transition-all duration-300 group cursor-pointer">
-      
-      <div class="w-full aspect-square bg-[#FFF2F2] rounded-xl p-4 flex items-center justify-center overflow-hidden mb-3">
-        <img src="${item.image || "../images/placeholder.jpg"}" 
-             alt="${item.title}" 
-             class="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300" />
-      </div>
-
-      <div class="flex flex-col gap-2 text-right" dir="rtl">
-        <h3 class="text-sm font-bold text-gray-800 line-clamp-1 group-hover:text-red-600 transition-colors">
-          ${item.title}
-        </h3>
-        <span class="text-xs text-gray-400 font-medium">
-          ${item.category || "عمومی"}
-        </span>
-        <div class="flex items-center justify-between mt-2 pt-2 border-t border-gray-50">
-          <span class="text-xs text-gray-400">قیمت:</span>
-          <span class="text-sm font-extrabold text-red-600">
-            ${item.price} <span class="text-xs font-normal text-gray-500">تومان</span>
-          </span>
-        </div>
-      </div>
-
-    </div>
-  `,
-      )
-      .join("");
-
-    // ۳. مدیریت کلیک روی هر کارت محصول مرتبط جهت بارگذاری جزئیات همان محصول در همین صفحه
-    track.querySelectorAll(".related-product-card").forEach((card) => {
-      card.addEventListener("click", () => {
-        const selectedId = card.dataset.id;
-        if (selectedId) {
-          // به‌روزرسانی پارامتر ID در URL بدون ریلود کامل صفحه
-          const newUrl = `${window.location.pathname}?id=${selectedId}`;
-          window.history.pushState({ path: newUrl }, "", newUrl);
-
-          // بارگذاری مجدد اطلاعات جزئیات محصول در همین صفحه
-          loadProductDetails(selectedId);
-
-          // اسکرول نرم به بالای صفحه جزئیات
-          window.scrollTo({ top: 0, behavior: "smooth" });
-        }
-      });
-    });
-
-    // ۴. منطق اسکرول افقی اسلایدر
-    const scrollAmount = 280;
-
-    nextBtn?.addEventListener("click", () => {
-      track.parentElement.scrollBy({ left: -scrollAmount, behavior: "smooth" });
-    });
-
-    prevBtn?.addEventListener("click", () => {
-      track.parentElement.scrollBy({ left: scrollAmount, behavior: "smooth" });
-    });
-  }
-
-  // ==========================================================================
-  // ۱۰. رویداد کلیک روی دکمه لایک (Event Delegation)
-  // ==========================================================================
-  document.addEventListener("click", (e) => {
-    const likeBtn = e.target.closest(".like-btn");
-    if (!likeBtn) return;
-
-    e.stopPropagation();
-
-    const productId = String(likeBtn.dataset.id);
-    const targetProduct = masterProductsList.find(
-      (p) => String(p.id) === productId,
-    );
-
-    if (targetProduct) {
-      targetProduct.like = !(
-        targetProduct.like === true || targetProduct.like === "true"
-      );
-
-      renderProducts();
-      renderSpecialSlider();
-      renderAllProductsSlider();
-      renderFavorites();
-    }
-  });
-
-  // ==========================================================================
-  // ۱۱. رویداد کلیک جهت هدایت به صفحه جزئیات (Card Navigation)
-  // ==========================================================================
-  document.addEventListener("click", (e) => {
-    const card = e.target.closest(".product-card");
-    const isAddToCart = e.target.closest(".add-to-cart-btn");
-    const isLikeBtn = e.target.closest(".like-btn");
-
-    if (card && !isAddToCart && !isLikeBtn) {
-      const productId = card.dataset.id;
-      localStorage.setItem("selectedProductId", productId);
-
-      const pathname = window.location.pathname;
-      const isSubFolder =
-        pathname.includes("/products/") ||
-        pathname.includes("/about-us/") ||
-        pathname.includes("/admin/") ||
-        pathname.includes("/cart/");
-
-      const targetUrl = isSubFolder
-        ? `../details/index.html?id=${productId}`
-        : `./details/index.html?id=${productId}`;
-
-      window.location.href = targetUrl;
-    }
-  });
-
-  // ==========================================================================
-  // ۱۲. فراخوانی‌های اولیه و رندر کامپوننت‌های کلی
-  // ==========================================================================
-  if (filterPriceRange) updatePriceLabel(filterPriceRange.value);
-  renderProducts();
-  renderSpecialSlider();
-  renderAllProductsSlider();
-  renderFavorites();
-
-  // ==========================================================================
-  // ۱۳. رندر دینامیک بخش جزئیات محصول (Product Detail Page Rendering)
-  // ==========================================================================
-  function loadProductDetails(targetProductId) {
-    const root = document.getElementById("product-detail-root");
-    if (!root) return;
-
-    // ۱. جستجو در آرایه داده‌ها
-    const product = (allProducts || []).find(
-      (p) => String(p.id) === String(targetProductId),
-    );
-
-    if (!product) {
-      root.innerHTML = `
-        <div class="max-w-[1440px] mx-auto p-12 text-center text-red-600 font-bold text-xl">
-          محصول مورد نظر یافت نشد.
-        </div>
-      `;
-      return;
-    }
-
-    // ۲. استخراج مشخصات محصول یا مقادیر پیش‌فرض
-    const {
-      id,
-      title = "عنوان نامشخص",
-      price = "0",
-      image = "../images/placeholder.jpg",
-      category = "ابزار عمومی",
-      brand = "مشخص نشده",
-      description = "توضیحاتی برای این محصول ثبت نشده است.",
-      weight = "نامشخص",
-      dimensions = "نامشخص",
-      like = false,
-      gallery = [],
-    } = product;
-
-    // راه اندازی مجدد محصولات مرتبط بر اساس دسته بندی و آیدی محصول انتخابی جدید
-    setupRelatedProducts(category, id);
-
-    // تنظیم گالری تصاویر (در صورت عدم وجود، استفاده از تصویر اصلی)
-    const productImages = gallery.length > 0 ? gallery : [image, image, image];
-
-    // ۳. تزریق کامل HTML و Tailwind CSS
-    root.innerHTML = `
-        <h1 class="text-2xl font-extrabold text-black-main mb-6 text-right">
-          جزئیات محصول
-        </h1>
-
-        <!-- کادر اصلی -->
-        <div class="border border-red-500 rounded-3xl p-6 bg-white shadow-sm">
-          <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            
-            <!-- ۱. بخش اطلاعات سمت چپ + گالری عکس سمت راست -->
-            <div class="lg:col-span-8 flex flex-col gap-4 overflow-visible" dir="rtl">
-              
-              <!-- عنوان محصول -->
-              <div class="flex items-center w-full">
-                <span class="w-[60%] h-[2px] bg-red-500 z-0"></span>
-                <h2 class="text-xl md:text-2xl font-extrabold text-red-600 whitespace-nowrap bg-white pr-4 z-10">
-                  ${title}
-                </h2>
-              </div>
-
-              <!-- گالری عکس و مشخصات خلاصه -->
-              <div class="grid grid-cols-1 md:grid-cols-12 items-start gap-4">
-                
-                <!-- گالری عکس -->
-                <div class="md:col-span-7 flex flex-col gap-4">
-                  <div class="bg-[#FFF2F2] rounded-3xl aspect-square flex items-center justify-center p-8 relative overflow-hidden shadow-sm">
-                    <img id="main-product-img" src="${image}" alt="${title}" class="w-full h-full object-contain" />
-                  </div>
-
-                  <div class="flex items-center justify-between gap-2">
-                    <button class="text-purple1 hover:scale-110 transition-transform">
-                      <svg class="w-8 h-8 fill-current" viewBox="0 0 29 58" fill="none">
-                        <path d="M0 0L28.75 28.75L0 57.5V0Z" />
-                      </svg>
-                    </button>
-
-                    <div class="grid grid-cols-3 gap-3 flex-1">
-                      ${productImages
-                        .slice(0, 3)
-                        .map(
-                          (imgSrc) => `
-                        <div class="thumb-card bg-[#FFF2F2] rounded-2xl aspect-square p-2 flex items-center justify-center cursor-pointer hover:border hover:border-red-400 transition-all">
-                          <img src="${imgSrc}" alt="${title}" class="w-full h-full object-contain" />
-                        </div>
-                      `,
-                        )
-                        .join("")}
-                    </div>
-
-                    <button class="text-purple1 hover:scale-110 transition-transform">
-                      <svg class="w-8 h-8 fill-current" viewBox="0 0 29 58" fill="none">
-                        <path d="M28.75 0L0 28.75L28.75 57.5V0Z"/>
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-
-                <!-- مشخصات و خلاصه -->
-                <div class="md:col-span-5 space-y-8 pt-5 md:pt-3 xl:pt-6 2xl:pt-10 text-right">
-                  <div class="md:space-y-5 xl:space-y-7 2xl:space-y-10">
-                    
-                    <div class="flex items-center text-xs md:text-sm text-gray-700">
-                      <span class="w-4 h-[2px] bg-red-500 flex-shrink-0"></span>
-                      <span class="whitespace-nowrap bg-white pr-2">دسته بندی: ${category}</span>
-                    </div>
-
-                    <div class="flex items-center text-xs md:text-sm text-gray-400">
-                      <span class="w-4 h-[2px] bg-red-500 flex-shrink-0"></span>
-                      <div class="flex items-center gap-1.5 whitespace-nowrap bg-white pr-2">
-                        <span class="text-gray-300 tracking-tight">☆☆☆☆☆</span>
-                        <span>(9)</span>
-                        <button class="text-red-300 hover:text-red-500 transition-colors">
-                          <svg class="w-6 h-6 xl:w-10 h-10 stroke-red-400 ${like ? "fill-red-500" : "fill-none"}" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                              d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-
-                    <div class="space-y-2 pt-2">
-                      <p class="text-xs md:text-sm font-bold text-red-600 text-right pr-6">خلاصه محصول</p>
-                      <div class="flex items-center text-xs md:text-sm text-gray-700 font-medium">
-                        <span class="w-4 h-[2px] bg-red-500 flex-shrink-0"></span>
-                        <span class="pr-2">${title}</span>
-                      </div>
-                      <div class="flex items-center text-xs md:text-sm text-gray-700 font-medium">
-                        <span class="w-4 h-[2px] bg-red-500 flex-shrink-0"></span>
-                        <span class="pr-2">برند ${brand}</span>
-                      </div>
-                      <div class="flex items-center text-xs md:text-sm text-gray-700 font-medium">
-                        <span class="w-4 h-[2px] bg-red-500 flex-shrink-0"></span>
-                        <span class="pr-2">ضدآب / گارانتی / همراه با جعبه مخصوص</span>
-                      </div>
-                    </div>
-
-                    <div class="flex items-center pt-2">
-                      <span class="w-4 h-[2px] bg-red-500 flex-shrink-0"></span>
-                      <span class="text-xl md:text-2xl font-extrabold text-red-600 whitespace-nowrap bg-white pr-2">
-                        ${price} <span class="text-sm lg:text-xl xl:text-3xl font-bold">تومان</span>
-                      </span>
-                    </div>
-
-                  </div>
-                </div>
-
-              </div>
-            </div>
-
-            <!-- ۲. ستون مشخصات فنی و خرید -->
-            <div class="lg:col-span-4 border border-red-400 rounded-2xl p-5 space-y-4 flex flex-col justify-between bg-white h-full">
-              <div class="text-xs text-gray-600 space-y-2 leading-relaxed text-right">
-                <p>تعویض و مرجوعی به هیچ عنوان نداریم.</p>
-                <p>${description}</p>
-                <p>هزینه حمل به عهده خریدار</p>
-                <p class="pt-1">
-                  شناسه محصول:
-                  <span class="font-bold text-gray-800">${id}</span>
-                </p>
-              </div>
-
-              <hr class="border-gray-200" />
-
-              <div class="text-xs text-black-primary space-y-2">
-                <p class="flex justify-between items-center">
-                  <span class="font-bold">${weight}</span>
-                  <span class="text-gray-500">وزن:</span>
-                </p>
-                <hr class="border-gray-200" />
-                <p class="flex justify-between items-center">
-                  <span class="font-bold">${dimensions}</span>
-                  <span class="text-gray-500">ابعاد:</span>
-                </p>
-              </div>
-
-              <hr class="border-gray-200" />
-
-              <div class="space-y-2 text-center">
-                <p class="text-sm font-bold text-gray-800">رنگ بندی</p>
-                <div class="flex items-center justify-center gap-2 pt-1">
-                  <span class="w-8 h-8 rounded-full bg-[#C82323] cursor-pointer hover:scale-110 transition-transform"></span>
-                  <span class="w-8 h-8 rounded-full bg-[#2E6B12] cursor-pointer hover:scale-110 transition-transform"></span>
-                  <span class="w-8 h-8 rounded-full bg-[#4F46E5] cursor-pointer hover:scale-110 transition-transform"></span>
-                  <span class="w-8 h-8 rounded-full bg-[#FF5722] cursor-pointer hover:scale-110 transition-transform"></span>
-                </div>
-              </div>
-
-              <p class="text-xs font-bold text-emerald-600 text-center">موجود در انبار</p>
-
-              <!-- شمارنده تعداد -->
-              <div class="flex items-center justify-between border border-red-500 rounded-xl p-1 px-4">
-                <button id="qty-minus" class="text-2xl font-bold text-red-600 hover:scale-125 transition-transform">-</button>
-                <span id="qty-val" class="font-bold text-base text-black-primary">1</span>
-                <button id="qty-plus" class="text-2xl font-bold text-red-600 hover:scale-125 transition-transform">+</button>
-              </div>
-
-              <button class="w-full bg-[#C82323] text-white py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-red-700 transition-colors shadow-md active:scale-95">
-                <span>افزودن به سبد خرید</span>
-                <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24">
-                  <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
-                </svg>
-              </button>
-            </div>
-
-          </div>
-        </div>
-    `;
-
-    // ۴. تعاملات کامپوننت جزئیات (تغییر عکس اصلی با کلیک روی تامبنیل‌ها و شمارنده تعداد)
-    let count = 1;
-    const qtyVal = document.getElementById("qty-val");
-    const mainImg = document.getElementById("main-product-img");
-
-    document.getElementById("qty-plus")?.addEventListener("click", () => {
-      count++;
-      qtyVal.textContent = count;
-    });
-
-    document.getElementById("qty-minus")?.addEventListener("click", () => {
-      if (count > 1) {
-        count--;
-        qtyVal.textContent = count;
-      }
-    });
-
-    document.querySelectorAll(".thumb-card img").forEach((thumb) => {
-      thumb.addEventListener("click", (e) => {
-        mainImg.src = e.target.src;
-      });
-    });
-  }
-
-  // بارگذاری اولیه جزئیات محصول بر اساس URL
-  const urlParams = new URLSearchParams(window.location.search);
-  const initialProductId = urlParams.get("id");
-  if (initialProductId) {
-    loadProductDetails(initialProductId);
-  }
+  initProductsPage();
 });

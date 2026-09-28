@@ -1,5 +1,5 @@
 document.addEventListener("DOMContentLoaded", () => {
-  // --- ۱. مدیریت آکاردئون سوالات متداول ---
+  // --- 1. مدیریت آکاردئون سوالات متداول ---
   const faqSection = document.getElementById("faq-section");
 
   if (faqSection) {
@@ -33,7 +33,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // --- ۲. مدیریت اسلایدر نظرات مشتریان ---
+  // --- 2. مدیریت اسلایدر نظرات مشتریان ---
   const cards = document.querySelectorAll("#reviews-section .review-card");
   const nextBtn = document.getElementById("nextBtn");
   const prevBtn = document.getElementById("prevBtn");
