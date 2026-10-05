@@ -414,6 +414,7 @@ export async function fetchWithAuth(endpoint, options = {}) {
     "/cart",
     "/profile",
     "/account",
+    "/interests",
   ];
 
   const needsAuth =

@@ -136,23 +136,71 @@
           </ul>
         </div>
 
-        <div class="flex items-center  gap-x-3 lg:gap-4">
+        <div class="flex items-center gap-x-3 lg:gap-4">
+          <button type="button" id="desktopAuthBtn" aria-label="ورود یا ثبت‌نام"
+            class="openAuthModal hidden h-12 items-center justify-center rounded-xl bg-purple1 px-6 text-base font-bold text-white transition-colors hover:bg-purple1/90 lg:flex">
+            ورود/ثبت‌نام
+          </button>
+          <div class="relative hidden" id="userProfileWrapper">
+            <button type="button" id="desktopUserProfile" aria-label="اطلاعات کاربر" aria-haspopup="true"
+              aria-expanded="false"
+              class="flex h-10 w-10 items-center justify-center gap-2 overflow-hidden whitespace-nowrap rounded-full border border-purple1/20 bg-purple1 font-bold text-white shadow-sm transition-all duration-300 hover:opacity-90">
+              <svg data-profile-icon class="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M20 21a8 8 0 0 0-16 0m8-10a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z" />
+              </svg>
+              <span data-profile-label class="hidden max-w-36 truncate text-xs"></span>
+            </button>
+            <div id="userMenuDropdown"
+              class="absolute left-0 z-50 mt-3 hidden w-64 origin-top-left overflow-hidden rounded-2xl border border-gray-primary/30 bg-white shadow-xl">
+              <div class="flex items-center gap-3 border-b border-gray-primary/20 bg-yasi p-4">
+                <span class="flex h-11 w-11 items-center justify-center rounded-full bg-purple1 text-lg font-bold text-white">
+                  <span class="userInitial">ی</span>
+                </span>
+                <span class="flex min-w-0 flex-col text-right">
+                  <span class="text-xs text-gray-500">خوش آمدید،</span>
+                  <span class="userName truncate text-sm font-bold text-black-primary">کاربر گرامی</span>
+                  <span id="userPhone" class="truncate text-right text-xs text-gray-main dir-ltr"></span>
+                </span>
+              </div>
+              <div class="border-b border-gray-primary/20 px-4 py-3">
+                <div class="mb-1.5 flex items-center justify-between text-xs">
+                  <span class="text-gray-main">تکمیل ثبت‌نام</span>
+                  <span data-profile-completion-value class="font-bold text-red-600">۰٪</span>
+                </div>
+                <div class="h-1.5 w-full overflow-hidden rounded-full bg-[#E7E7E7]" data-profile-progress
+                  role="progressbar" aria-label="درصد تکمیل پروفایل" aria-valuemin="0" aria-valuemax="100"
+                  aria-valuenow="0">
+                  <span class="block h-full w-0 rounded-full bg-red-500 transition-[width] duration-300"
+                    data-profile-completion-bar></span>
+                </div>
+              </div>
+              <nav class="space-y-1 p-2" aria-label="منوی حساب کاربری">
+                <a href="../userpanel/index.html#account" class="block rounded-xl px-3 py-2.5 text-sm text-black-primary transition-colors hover:bg-yasi hover:text-purple1">حساب کاربری من</a>
+                <a href="../userpanel/index.html#orders" class="block rounded-xl px-3 py-2.5 text-sm text-black-primary transition-colors hover:bg-yasi hover:text-purple1">سفارش‌های من</a>
+                <a href="../userpanel/index.html#favorites" class="block rounded-xl px-3 py-2.5 text-sm text-black-primary transition-colors hover:bg-yasi hover:text-purple1">علاقه‌مندی‌ها</a>
+                <button type="button" id="desktopLogoutBtn" class="block w-full rounded-xl px-3 py-2.5 text-right text-sm text-red-600 transition-colors hover:bg-red-50">خروج از حساب</button>
+              </nav>
+            </div>
+          </div>
 
-          <!--  دکمه ورود/ثبت نام: باکس سرچ مطابق تصویر -->
-          <div class="hidden sm:flex items-center bg-[#FDF2F2] rounded-full px-4 py-2.5 w-60 md:w-72 justify-between">
-            <button class="text-purple1 focus:outline-none hover:opacity-80">
-              <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24">
-                <path
-                  d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
-              </svg>
-            </button>
-            <input type="text" placeholder="Hinted search text"
-              class="bg-transparent text-sm text-gray-main placeholder:text-gray-primary text-center focus:outline-none w-full px-2" />
-            <button class="text-purple1 focus:outline-none hover:opacity-80">
-              <svg class="w-5 h-5 stroke-current" fill="none" viewBox="0 0 24 24" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
+          <!-- جست‌وجوی محصول -->
+          <div class="relative">
+            <form id="header-product-search" action="../products/index.html" data-product-search-form
+              class="relative flex h-10 w-10 items-center rounded-full border border-purple1/20 bg-yasi transition-all duration-300 hover:bg-purple1/10">
+              <input type="text" name="search" placeholder="جست‌وجوی محصول"
+                class="hidden min-w-0 flex-1 bg-transparent px-3 py-2 text-right text-sm text-black-primary outline-none placeholder:text-gray-main" />
+              <button type="submit" data-search-toggle aria-expanded="false" aria-label="باز کردن جست‌وجو"
+                class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-purple1">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="11" cy="11" r="7" stroke-width="2" />
+                  <path stroke-linecap="round" stroke-width="2" d="m20 20-4-4" />
+                </svg>
+              </button>
+              <div data-search-suggestions
+                class="absolute right-0 top-full z-50 mt-6 hidden w-64 max-w-full overflow-hidden rounded-xl border border-gray-200 bg-white text-right shadow-xl">
+              </div>
+            </form>
           </div>
           <!-- سبد خرید -->
           <div class="flex items-center gap-3 lg:gap-5 relative">
@@ -345,13 +393,14 @@
       <h2 class="text-2xl md:text-3xl lg:text-4xl font-extrabold text-black-main text-right">
         راه های ارتباطی با ما
       </h2>
+      <p data-site-info="name" class="text-gray-main text-sm md:text-base text-right"></p>
 
       <!-- محتوای اصلی: گرید دو ستونه برای مپ و کارت‌ها -->
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         <!-- ستون سمت راست: کارت‌های اطلاعات تماس -->
         <div class="lg:col-span-6 space-y-4">
           <!-- 1. آدرس فروشگاه -->
-          <div class="p-4 md:p-5 rounded-xl border border-purple1 bg-white space-y-2 text-right">
+          <div data-site-item="address" class="p-4 md:p-5 rounded-xl border border-purple1 bg-white space-y-2 text-right">
             <div class="flex items-center justify-start gap-x-2 text-purple1">
               <svg class="w-5 h-5 flex-shrink-0 fill-current" viewBox="0 0 24 24">
                 <path
@@ -365,7 +414,7 @@
           </div>
 
           <!-- 2. شماره تماس -->
-          <div class="p-4 md:p-5 rounded-xl border border-purple1 bg-white space-y-2 text-right">
+          <div data-site-item="phone" class="p-4 md:p-5 rounded-xl border border-purple1 bg-white space-y-2 text-right">
             <div class="flex items-center justify-start gap-x-2 text-purple1">
               <svg class="w-5 h-5 flex-shrink-0 fill-current" viewBox="0 0 24 24">
                 <path
@@ -379,7 +428,7 @@
           </div>
 
           <!-- 3. آدرس سایت -->
-          <div class="p-4 md:p-5 rounded-xl border border-purple1 bg-white space-y-2 text-right">
+          <div data-site-item="website" class="p-4 md:p-5 rounded-xl border border-purple1 bg-white space-y-2 text-right">
             <div class="flex items-center justify-start gap-x-2 text-purple1">
               <svg class="w-5 h-5 flex-shrink-0 fill-current" viewBox="0 0 24 24">
                 <path
@@ -393,7 +442,7 @@
           </div>
 
           <!-- 4. اینستاگرام -->
-          <div class="p-4 md:p-5 rounded-xl border border-purple1 bg-white flex items-center justify-between">
+          <div data-site-item="instagram" class="p-4 md:p-5 rounded-xl border border-purple1 bg-white flex items-center justify-between">
             <!-- سمت راست: عنوان، آیکون و آیدی -->
             <div class="flex flex-col items-start gap-y-1 text-right">
               <div class="flex items-center gap-x-2 text-purple1">
@@ -472,13 +521,13 @@
           </div>
 
           <!-- مسیریابی فروشگاه (دکمه‌های نشان و بلد) -->
-          <div class="pt-4 space-y-3 text-right">
+          <div data-site-directions class="pt-4 space-y-3 text-right">
             <p class="text-xs md:text-sm font-bold text-black-primary">
               مسیریابی فروشگاه
             </p>
             <div class="flex items-center justify-start gap-x-3">
               <!-- دکمه بلد -->
-              <button
+              <a data-site-map-link="balad" href="#" target="_blank" rel="noopener"
                 class="w-44 h-14.5 rounded-lg bg-[#2E7D32] hover:bg-[#1B5E20] py-4 px-2 gap-x-3 flex items-center justify-center">
                 <svg width="27" height="29" viewBox="0 0 27 29" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <g clip-path="url(#clip0_153_400)">
@@ -1545,12 +1594,11 @@
                   </defs>
                 </svg>
 
-                <a href="#"
-                  class=" text-white text-xs md:text-sm font-bold rounded-lg transition-colors flex items-center">
+                <span class="text-white text-xs md:text-sm font-bold rounded-lg transition-colors flex items-center">
                   بلد
-                </a>
-              </button>
-              <button
+                </span>
+              </a>
+              <a data-site-map-link="neshan" href="#" target="_blank" rel="noopener"
                 class="w-44 h-14.5 rounded-lg bg-[#2196F3] hover:bg-[#1976D2] py-4 px-2 gap-x-3 flex items-center justify-center">
                 <!-- دکمه نشان -->
                 <svg width="31" height="31" viewBox="0 0 31 31" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -1584,21 +1632,23 @@
                   </defs>
                 </svg>
 
-                <a href="#"
-                  class="text-white text-xs md:text-sm font-bold rounded-lg transition-colors flex items-center">
+                <span class="text-white text-xs md:text-sm font-bold rounded-lg transition-colors flex items-center">
                   نشان
-                </a>
-              </button>
+                </span>
+              </a>
             </div>
           </div>
         </div>
 
         <!-- ستون سمت چپ: نقشه‌ مکان (Location) -->
         <div class="lg:col-span-6 w-full h-[350px] md:h-[480px] lg:h-[540px]">
-          <div
-            class="w-full h-full bg-[#E0E0E0] rounded-2xl border border-yasi flex items-center justify-center shadow-inner">
-            <span class="text-3xl md:text-4xl font-black text-black-primary tracking-wide">
-              location
+          <iframe data-site-map-frame title="موقعیت فروشگاه در گوگل‌مپ"
+            class="hidden w-full h-full rounded-2xl border border-yasi shadow-inner"
+            loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+          <div data-site-map-placeholder
+            class="w-full h-full bg-[#E0E0E0] rounded-2xl border border-yasi flex items-center justify-center shadow-inner text-center p-6">
+            <span class="text-base md:text-xl font-bold text-black-primary">
+              برای نمایش نقشه، آدرس فروشگاه را در تنظیمات وارد کنید.
             </span>
           </div>
         </div>
@@ -1616,15 +1666,24 @@
           <h3 class="text-xl sm:text-2xl font-extrabold text-white mb-4">
             ارتباط با ما
           </h3>
+          <p data-site-info="name" class="mb-3 text-gray-primary text-sm sm:text-base"></p>
           <ul class="space-y-3">
-            <li class="flex items-center justify-center sm:justify-start gap-3 text-gray-primary text-sm sm:text-base">
+            <li data-site-item="phone" class="flex items-center justify-center sm:justify-start gap-3 text-gray-primary text-sm sm:text-base">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                 class="w-5 h-5 text-purple1 flex-shrink-0">
                 <path
                   d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
               </svg>
-              <span data-site-info="phone">031-332146</span>
+              <a data-site-link="phone" data-site-info="phone" class="hover:text-purple1 transition-colors"></a>
+            </li>
+            <li data-site-item="mobile" class="flex items-center justify-center sm:justify-start gap-3 text-gray-primary text-sm sm:text-base">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                stroke="currentColor" class="w-5 h-5 text-purple1 flex-shrink-0">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M10.5 1.5H8.25A2.25 2.25 0 0 0 6 3.75v16.5a2.25 2.25 0 0 0 2.25 2.25h7.5A2.25 2.25 0 0 0 18 20.25V3.75a2.25 2.25 0 0 0-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
+              </svg>
+              <a data-site-link="mobile" data-site-info="mobile" class="hover:text-purple1 transition-colors dir-ltr"></a>
             </li>
             <li data-site-item="instagram" class="flex items-center justify-center sm:justify-start gap-3 text-gray-primary text-sm sm:text-base">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -1679,7 +1738,7 @@
                 <circle cx="12" cy="12" r="10" />
                 <polyline points="12 6 12 12 16 14" />
               </svg>
-              <span>شنبه تا پنجشنبه 9 تا 18</span>
+              <span data-site-info="work_hours">شنبه تا پنجشنبه 9 تا 18</span>
             </li>
           </ul>
         </div>
@@ -1751,6 +1810,11 @@
           <p data-site-info="address" class="text-gray-primary text-sm sm:text-base leading-relaxed">
             اصفهان، خانه اصفهان، خیابان ...، خیابان ...
           </p>
+          <div data-enamad-placeholder class="mt-4" style="width: 96px; height: 96px; flex: none;"
+            aria-label="نماد اعتماد الکترونیکی">
+            <img src="../assets/images/icon/Enemad.png" alt="نماد اعتماد الکترونیکی"
+              style="width: 100%; height: 100%; object-fit: contain;" />
+          </div>
         </div>
       </div>
     </div>
@@ -1975,6 +2039,7 @@
     </div>
   </div>
   <script type="module" src="../assets/script/sidbar.js"></script>
+  <script type="module" src="../assets/script/search.js"></script>
   <script type="module" src="../assets/script/data.js"></script>
   <script type="module" src="../assets/script/categories.js"></script>
   <script type="module" src="../assets/script/products.js"></script>

@@ -81,7 +81,17 @@ function getPermissionForSection(sectionId) {
 
 function isFullAccessRole() {
   const role = getEffectiveAdminRole();
-  return role === "super_admin" || role === "manager";
+  const user = getStoredUser();
+  const hasExplicitPermissions =
+    user &&
+    (Object.prototype.hasOwnProperty.call(user, "permissions") ||
+      Object.prototype.hasOwnProperty.call(user, "permission"));
+
+  return (
+    role === "super_admin" ||
+    role === "manager" ||
+    (role === "admin" && Boolean(user) && !hasExplicitPermissions)
+  );
 }
 
 function canAccessSection(sectionId) {

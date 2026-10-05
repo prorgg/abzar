@@ -6,36 +6,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>landing</title>
   <link rel="stylesheet" href="./src/output.css" />
-  <style>
-    .navbar-profile-progress {
-      display: block;
-      width: 7.5rem;
-      max-width: 100%;
-      margin-top: 3px;
-    }
-
-    .navbar-profile-progress-track {
-      display: block;
-      width: 100%;
-      height: 3px;
-      overflow: hidden;
-      border-radius: 99px;
-      background: color-mix(in srgb, var(--color-gray-primary) 30%, white);
-    }
-
-    .navbar-profile-progress-bar {
-      display: block;
-      width: 0;
-      height: 100%;
-      border-radius: inherit;
-      background: var(--color-purple1);
-      transition: width .35s ease;
-    }
-
-    #mobileUserProfile .navbar-profile-progress {
-      width: clamp(7rem, 30vw, 9rem);
-    }
-  </style>
 </head>
 
 <body class="max-w-full">
@@ -102,9 +72,10 @@
             </div>
             <div class="flex min-w-0 flex-1 flex-col text-right">
               <span class="userName text-sm font-bold text-black-primary">کاربر گرامی</span>
-              <div class="navbar-profile-progress" data-profile-progress role="progressbar"
+              <div class="block w-[7.5rem] max-w-full mt-[3px]" data-profile-progress role="progressbar"
                 aria-label="درصد تکمیل پروفایل" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-                <div class="navbar-profile-progress-track"><span class="navbar-profile-progress-bar"
+                <div class="block w-full h-[3px] overflow-hidden rounded-full bg-[#E7E7E7]"><span
+                    class="block h-full w-0 rounded-full bg-purple1 transition-[width] duration-300"
                     data-profile-completion-bar></span></div>
               </div>
             </div>
@@ -168,34 +139,23 @@
 
         <div class="flex items-center gap-3 lg:gap-4">
           <!-- دکمه ورود دسکتاپ -->
-          <button type="button" id="desktopAuthBtn"
-            class="openAuthModal hidden lg:flex text-white bg-purple1 px-6 py-2.5 md:px-8 md:py-3 rounded-[10px] text-base md:text-xl transition-all duration-200 whitespace-nowrap hover:opacity-90 cursor-pointer">
-            ورود/ثبت نام
+          <button type="button" id="desktopAuthBtn" aria-label="ورود یا ثبت‌نام"
+            class="openAuthModal hidden h-12 items-center justify-center rounded-xl bg-purple1 px-6 text-base font-bold text-white transition-colors hover:bg-purple1/90 lg:flex">
+            ورود/ثبت‌نام
           </button>
 
           <!-- بخش پروفایل کاربر به همراه منوی کشویی (Modal/Dropdown) -->
-          <div class="relative" id="userProfileWrapper">
+          <div class="relative hidden" id="userProfileWrapper">
             <!-- دکمه پروفایل -->
-            <div id="desktopUserProfile"
-              class="hidden lg:flex items-center gap-3 bg-yasi hover:bg-purple1/10 transition-all duration-200 py-1.5 px-3 rounded-full border border-purple1/20 cursor-pointer group">
-              <div
-                class="w-9 h-9 rounded-full bg-purple1 text-white flex items-center justify-center font-bold text-base shadow-sm group-hover:scale-105 transition-transform">
-                <span class="userInitial">ی</span>
-              </div>
-              <div class="flex flex-col text-right pl-1">
-                <span class="userName text-sm font-bold text-black-primary">کاربر گرامی</span>
-                <div class="navbar-profile-progress" data-profile-progress role="progressbar"
-                  aria-label="درصد تکمیل پروفایل" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-                  <div class="navbar-profile-progress-track"><span class="navbar-profile-progress-bar"
-                      data-profile-completion-bar></span></div>
-                </div>
-              </div>
-              <!-- آیکون فلش جهت نما -->
-              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-gray-main transition-transform duration-200"
-                id="profileChevron" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            <button type="button" id="desktopUserProfile" aria-label="اطلاعات کاربر" aria-haspopup="true"
+              aria-expanded="false"
+              class="flex h-10 w-10 items-center justify-center gap-2 overflow-hidden whitespace-nowrap rounded-full border border-purple1/20 bg-purple1 font-bold text-white shadow-sm transition-all duration-300 hover:opacity-90">
+              <svg data-profile-icon class="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M20 21a8 8 0 0 0-16 0m8-10a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z" />
               </svg>
-            </div>
+              <span data-profile-label class="hidden max-w-36 truncate text-xs"></span>
+            </button>
 
             <!-- منوی مودال/کشویی کاربر -->
             <div id="userMenuDropdown"
@@ -209,6 +169,18 @@
                 <div class="flex flex-col text-right overflow-hidden">
                   <span class="userName text-sm font-bold text-black-primary truncate">کاربر گرامی</span>
                   <span id="userPhone" class="text-xs text-gray-main dir-ltr text-right truncate">09225568686</span>
+                </div>
+              </div>
+              <div class="border-b border-gray-primary/20 px-4 py-3">
+                <div class="mb-1.5 flex items-center justify-between text-xs">
+                  <span class="text-gray-main">تکمیل ثبت‌نام</span>
+                  <span data-profile-completion-value class="font-bold text-red-600">۰٪</span>
+                </div>
+                <div class="h-1.5 w-full overflow-hidden rounded-full bg-[#E7E7E7]" data-profile-progress
+                  role="progressbar" aria-label="درصد تکمیل پروفایل" aria-valuemin="0" aria-valuemax="100"
+                  aria-valuenow="0">
+                  <span class="block h-full w-0 rounded-full bg-red-500 transition-[width] duration-300"
+                    data-profile-completion-bar></span>
                 </div>
               </div>
 
@@ -251,6 +223,21 @@
           </div>
           <!-- دکمه رفتن به سبد خرید -->
           <div class="flex items-center gap-3 lg:gap-5 relative">
+            <form id="landing-product-search" action="./products/index.html" data-product-search-form
+              class="relative flex h-10 w-10 items-center rounded-full border border-purple1/20 bg-yasi transition-all duration-300 hover:bg-purple1/10">
+              <input type="text" name="search" placeholder="نام محصول را جست‌وجو کنید"
+                class="hidden min-w-0 flex-1 bg-transparent px-3 py-2 text-right text-sm text-black-primary outline-none placeholder:text-gray-main" />
+              <button type="submit" data-search-toggle aria-expanded="false" aria-label="باز کردن جست‌وجو"
+                class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-purple1">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="11" cy="11" r="7" stroke-width="2" />
+                  <path stroke-linecap="round" stroke-width="2" d="m20 20-4-4" />
+                </svg>
+              </button>
+              <div data-search-suggestions
+                class="absolute right-0 top-full z-50 mt-6 hidden w-64 max-w-full overflow-hidden rounded-xl border border-gray-200 bg-white text-right shadow-xl">
+              </div>
+            </form>
             <div class="relative inline-flex items-center">
               <a href="./cart/index.html" class="block">
                 <svg width="40" height="40" viewBox="0 0 43 43" fill="none" xmlns="http://www.w3.org/2000/svg"
@@ -884,17 +871,27 @@
           <h3 class="text-xl sm:text-2xl font-extrabold text-white mb-4">
             ارتباط با ما
           </h3>
+          <p data-site-info="name" class="mb-3 text-gray-primary text-sm sm:text-base"></p>
           <ul class="space-y-3">
-            <li class="flex items-center justify-center sm:justify-start gap-3 text-gray-primary text-sm sm:text-base">
+            <li data-site-item="phone" class="flex items-center justify-center sm:justify-start gap-3 text-gray-primary text-sm sm:text-base">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                 class="w-5 h-5 text-purple1 flex-shrink-0">
                 <path
                   d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
               </svg>
-              <span data-site-info="phone">031-332146</span>
+              <a data-site-link="phone" data-site-info="phone" class="hover:text-purple1 transition-colors"></a>
             </li>
-            <li data-site-item="instagram" class="flex items-center justify-center sm:justify-start gap-3 text-gray-primary text-sm sm:text-base">
+            <li data-site-item="mobile" class="flex items-center justify-center sm:justify-start gap-3 text-gray-primary text-sm sm:text-base">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                stroke="currentColor" class="w-5 h-5 text-purple1 flex-shrink-0">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M10.5 1.5H8.25A2.25 2.25 0 0 0 6 3.75v16.5a2.25 2.25 0 0 0 2.25 2.25h7.5A2.25 2.25 0 0 0 18 20.25V3.75a2.25 2.25 0 0 0-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
+              </svg>
+              <a data-site-link="mobile" data-site-info="mobile" class="hover:text-purple1 transition-colors dir-ltr"></a>
+            </li>
+            <li data-site-item="instagram"
+              class="flex items-center justify-center sm:justify-start gap-3 text-gray-primary text-sm sm:text-base">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                 class="w-5 h-5 text-purple1 flex-shrink-0">
@@ -905,23 +902,28 @@
               <a data-site-link="instagram" href="https://instagram.com/aalm4516" target="_blank" rel="noopener"
                 class="hover:text-purple1 transition-colors" data-site-info="instagram">@aalm4516</a>
             </li>
-            <li data-site-item="telegram" class="hidden flex items-center justify-center sm:justify-start gap-3 text-gray-primary text-sm sm:text-base">
+            <li data-site-item="telegram"
+              class="hidden flex items-center justify-center sm:justify-start gap-3 text-gray-primary text-sm sm:text-base">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
                 class="w-5 h-5 text-purple1 flex-shrink-0">
-                <path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z" />
+                <path
+                  d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z" />
               </svg>
               <a data-site-link="telegram" href="#" target="_blank" rel="noopener"
                 class="hover:text-purple1 transition-colors" data-site-info="telegram"></a>
             </li>
-            <li data-site-item="whatsapp" class="hidden flex items-center justify-center sm:justify-start gap-3 text-gray-primary text-sm sm:text-base">
+            <li data-site-item="whatsapp"
+              class="hidden flex items-center justify-center sm:justify-start gap-3 text-gray-primary text-sm sm:text-base">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
                 class="w-5 h-5 text-purple1 flex-shrink-0">
-                <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38c1.45.79 3.08 1.21 4.79 1.21 5.46 0 9.91-4.45 9.91-9.91S17.5 2 12.04 2zm5.8 14.02c-.24.68-1.4 1.3-1.94 1.38-.5.07-1.13.1-1.82-.11-.42-.13-.96-.31-1.65-.61-2.9-1.25-4.79-4.17-4.94-4.36-.14-.19-1.18-1.57-1.18-2.99s.75-2.12 1.01-2.41c.27-.29.58-.36.77-.36h.56c.18 0 .42-.07.66.5.24.58.82 2 .89 2.14.07.14.12.31.02.5-.1.19-.14.31-.29.48-.14.17-.3.38-.43.51-.14.14-.29.29-.12.58.17.29.74 1.22 1.59 1.98 1.09.97 2.01 1.27 2.3 1.42.29.14.46.12.63-.07.17-.19.72-.84.91-1.13.19-.29.39-.24.66-.14.27.1 1.69.8 1.98.94.29.14.48.22.55.34.07.12.07.69-.17 1.37z" />
+                <path
+                  d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38c1.45.79 3.08 1.21 4.79 1.21 5.46 0 9.91-4.45 9.91-9.91S17.5 2 12.04 2zm5.8 14.02c-.24.68-1.4 1.3-1.94 1.38-.5.07-1.13.1-1.82-.11-.42-.13-.96-.31-1.65-.61-2.9-1.25-4.79-4.17-4.94-4.36-.14-.19-1.18-1.57-1.18-2.99s.75-2.12 1.01-2.41c.27-.29.58-.36.77-.36h.56c.18 0 .42-.07.66.5.24.58.82 2 .89 2.14.07.14.12.31.02.5-.1.19-.14.31-.29.48-.14.17-.3.38-.43.51-.14.14-.29.29-.12.58.17.29.74 1.22 1.59 1.98 1.09.97 2.01 1.27 2.3 1.42.29.14.46.12.63-.07.17-.19.72-.84.91-1.13.19-.29.39-.24.66-.14.27.1 1.69.8 1.98.94.29.14.48.22.55.34.07.12.07.69-.17 1.37z" />
               </svg>
               <a data-site-link="whatsapp" href="#" target="_blank" rel="noopener"
                 class="hover:text-purple1 transition-colors dir-ltr" data-site-info="whatsapp"></a>
             </li>
-            <li data-site-item="rubika" class="hidden flex items-center justify-center sm:justify-start gap-3 text-gray-primary text-sm sm:text-base">
+            <li data-site-item="rubika"
+              class="hidden flex items-center justify-center sm:justify-start gap-3 text-gray-primary text-sm sm:text-base">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                 class="w-5 h-5 text-purple1 flex-shrink-0">
@@ -1019,6 +1021,11 @@
           <p data-site-info="address" class="text-gray-primary text-sm sm:text-base leading-relaxed">
             اصفهان، خانه اصفهان، خیابان ...، خیابان ...
           </p>
+          <div data-enamad-placeholder class="mt-4" style="width: 96px; height: 96px; flex: none;"
+            aria-label="نماد اعتماد الکترونیکی">
+            <img src="./assets/images/icon/Enemad.png" alt="نماد اعتماد الکترونیکی"
+              style="width: 100%; height: 100%; object-fit: contain;" />
+          </div>
         </div>
       </div>
     </div>
@@ -1193,6 +1200,7 @@
     </div>
   </div>
   <script type="module" src="./assets/script/sidbar.js"></script>
+  <script type="module" src="./assets/script/search.js"></script>
   <script type="module" src="./assets/script/data.js"></script>
   <script type="module" src="./assets/script/categories.js"></script>
   <script type="module" src="./assets/script/products.js"></script>

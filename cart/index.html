@@ -57,10 +57,10 @@
 
       <!-- بخش لاگین / پروفایل موبایل -->
       <div class="mt-auto pt-4 border-t border-gray-200">
-        <button type="button" id="mobileAuthBtn"
-          class="openAuthModal block px-4 py-2.5 rounded-lg bg-purple1 text-white text-center transition-all duration-200 cursor-pointer w-full">
+        <a href="../index.html#login" id="mobileAuthBtn"
+          class="block px-4 py-2.5 rounded-lg bg-purple1 text-white text-center transition-all duration-200 cursor-pointer w-full">
           ورود/ثبت نام
-        </button>
+        </a>
 
         <div id="mobileUserProfile" class="hidden flex items-center justify-between p-2 bg-purple1/10 rounded-xl">
           <a href="../userpanel/index.html#account" aria-label="رفتن به حساب کاربری"
@@ -120,18 +120,55 @@
           </ul>
         </div>
 
-        <div class="flex items-center gap-x-3 lg:gap-4">
-          <div class="hidden sm:flex items-center bg-[#FDF2F2] rounded-full px-4 py-2.5 w-60 md:w-72 justify-between">
-            <button class="text-purple1 focus:outline-none hover:opacity-80">
-              <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24">
-                <path
-                  d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+        <div class="flex shrink-0 items-center gap-x-3 lg:gap-4">
+          <a href="../index.html#login" id="desktopAuthBtn"
+            class="hidden shrink-0 lg:flex items-center rounded-[10px] bg-purple1 px-6 py-2.5 text-base font-medium text-white transition-opacity hover:opacity-90 md:px-8 md:py-3 md:text-xl">
+            ورود/ثبت نام
+          </a>
+          <div class="relative hidden shrink-0" id="userProfileWrapper">
+            <button type="button" id="desktopUserProfile"
+              class="hidden shrink-0 lg:flex items-center gap-3 rounded-full border border-purple1/20 bg-yasi px-3 py-1.5 transition-all duration-200 hover:bg-purple1/10">
+              <span class="flex h-9 w-9 items-center justify-center rounded-full bg-purple1 text-base font-bold text-white shadow-sm">
+                <span class="userInitial">ی</span>
+              </span>
+              <span class="flex flex-col text-right">
+                <span class="userName text-sm font-bold text-black-primary">کاربر گرامی</span>
+                <span class="mt-[3px] block h-[3px] w-[7.5rem] max-w-full overflow-hidden rounded-full bg-[#E7E7E7]"
+                  data-profile-progress role="progressbar" aria-label="درصد تکمیل پروفایل"
+                  aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                  <span class="block h-full w-0 rounded-full bg-purple1 transition-[width] duration-300"
+                    data-profile-completion-bar></span>
+                </span>
+              </span>
+              <svg class="h-4 w-4 text-gray-main transition-transform duration-200" id="profileChevron"
+                fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 9-7 7-7-7" />
               </svg>
             </button>
-            <input type="text" placeholder="جستجو کنید..."
-              class="bg-transparent text-sm text-gray-main placeholder:text-gray-primary text-center focus:outline-none w-full px-2" />
+            <div id="userMenuDropdown"
+              class="absolute left-0 z-50 mt-3 hidden w-64 origin-top-left overflow-hidden rounded-2xl border border-gray-primary/30 bg-white shadow-xl transition-all duration-200">
+              <div class="flex items-center gap-3 border-b border-gray-primary/20 bg-yasi p-4">
+                <span class="flex h-11 w-11 items-center justify-center rounded-full bg-purple1 text-lg font-bold text-white shadow-inner">
+                  <span class="userInitial">ی</span>
+                </span>
+                <span class="flex min-w-0 flex-col text-right">
+                  <span class="userName truncate text-sm font-bold text-black-primary">کاربر گرامی</span>
+                  <span id="userPhone" class="truncate text-right text-xs text-gray-main dir-ltr">---</span>
+                </span>
+              </div>
+              <nav class="space-y-1 p-2" aria-label="منوی حساب کاربری">
+                <a href="../userpanel/index.html#account"
+                  class="block rounded-xl px-3 py-2.5 text-sm font-medium text-black-primary transition-colors hover:bg-yasi hover:text-purple1">حساب کاربری من</a>
+                <a href="../userpanel/index.html#orders"
+                  class="block rounded-xl px-3 py-2.5 text-sm font-medium text-black-primary transition-colors hover:bg-yasi hover:text-purple1">سفارش‌های من</a>
+                <a href="../userpanel/index.html#favorites"
+                  class="block rounded-xl px-3 py-2.5 text-sm font-medium text-black-primary transition-colors hover:bg-yasi hover:text-purple1">علاقه‌مندی‌ها</a>
+                <button type="button" id="desktopLogoutBtn"
+                  class="block w-full rounded-xl px-3 py-2.5 text-right text-sm font-medium text-red-600 transition-colors hover:bg-red-50">خروج از حساب</button>
+              </nav>
+            </div>
           </div>
-          <div class="flex items-center gap-3 lg:gap-5 relative cursor-pointer">
+          <div class="relative flex shrink-0 cursor-pointer items-center gap-3 lg:gap-5">
             <a href="../index.html" class="block text-purple1 font-medium">برگشت</a>
             <div class="flex items-center text-purple1 hover:text-black-main">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -261,11 +298,43 @@
                 class="w-full rounded-xl border border-gray-300 p-3 text-black-primary dir-ltr text-right" />
             </label>
           </div>
-          <label class="block space-y-1 text-sm font-bold text-gray-main">آدرس کامل
-            <textarea id="shipping-address" required rows="4"
-              class="w-full rounded-xl border border-gray-300 p-3 text-black-primary"
-              placeholder="استان، شهر، خیابان، پلاک و واحد"></textarea>
-          </label>
+          <div class="space-y-3">
+            <h3 class="text-sm font-bold text-gray-main">آدرس تحویل</h3>
+            <label id="saved-address-option"
+              class="hidden block cursor-pointer rounded-xl border border-purple1/40 bg-yasi/30 p-4">
+              <span class="flex items-start gap-3">
+                <input id="use-saved-address" type="radio" name="shipping-address-choice" value="saved"
+                  class="mt-1 accent-purple1" checked />
+                <span class="min-w-0">
+                  <span class="block text-sm font-bold text-black-primary">آدرس ذخیره‌شده در حساب</span>
+                  <span id="saved-shipping-address" class="mt-2 block whitespace-pre-line text-sm font-normal leading-7 text-gray-main"></span>
+                </span>
+              </span>
+            </label>
+            <p id="no-saved-address" class="hidden rounded-xl border border-dashed border-gray-300 p-4 text-sm text-gray-main">
+              هنوز آدرسی در حساب شما ذخیره نشده است. آدرس جدید را اضافه کنید.
+            </p>
+            <button type="button" id="add-new-address-btn"
+              class="rounded-xl border border-purple1 px-4 py-2.5 text-sm font-bold text-purple1 transition-colors hover:bg-purple1/5">
+              افزودن آدرس جدید
+            </button>
+            <div id="new-address-form" class="hidden space-y-3 rounded-xl border border-gray-200 p-4">
+              <label for="shipping-address" class="block text-sm font-bold text-gray-main">آدرس کامل جدید</label>
+              <textarea id="shipping-address" rows="4"
+                class="block w-full rounded-xl border border-gray-300 p-3 text-black-primary outline-none transition focus:border-purple1 focus:ring-2 focus:ring-purple1/10"
+                placeholder="استان، شهر، خیابان، پلاک و واحد"></textarea>
+              <div class="flex flex-wrap gap-2">
+                <button type="button" id="save-new-address-btn"
+                  class="rounded-xl bg-purple1 px-5 py-2.5 text-sm font-bold text-white transition-opacity hover:opacity-90">
+                  ذخیره آدرس جدید
+                </button>
+                <button type="button" id="cancel-new-address-btn"
+                  class="rounded-xl border border-gray-300 px-5 py-2.5 text-sm font-bold text-gray-main">
+                  انصراف
+                </button>
+              </div>
+            </div>
+          </div>
           <div class="flex flex-wrap justify-between gap-3 pt-2">
             <button type="button" id="back-to-cart"
               class="border border-gray-300 text-gray-main rounded-xl px-5 py-3 font-bold">بازگشت به سبد</button>
@@ -345,13 +414,8 @@
 
   <script type="module" src="../assets/script/sidbar.js"></script>
   <script type="module" src="../assets/script/data.js"></script>
-  <script type="module" src="../assets/script/categories.js"></script>
-  <script type="module" src="../assets/script/products.js"></script>
   <script type="module" src="../assets/script/cart.js?v=cart-item-id-20260923-v2"></script>
-  <script type="module" src="../assets/script/details.js"></script>
   <script type="module" src="../assets/script/login.js"></script>
-  <script type="module" src="../assets/script/timerDiscount.js"></script>
-  <script type="module" src="../assets/script/questions.js"></script>
   <script type="module" src="../assets/script/siteInfo.js"></script>
 </body>
 

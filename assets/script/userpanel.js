@@ -1,5 +1,5 @@
 import { fetchWithAuth, resolveProductImagePath } from "./data.js";
-import { getFavoriteProducts, registerFavoriteProduct } from "./favorites.js";
+import { FAVORITES_STORAGE_KEY } from "./favorites.js";
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => {
@@ -14,48 +14,170 @@ function escapeHtml(value) {
   });
 }
 
-function renderFavoriteProducts() {
+function normalizeFavoriteInterests(payload, depth = 0) {
+  if (Array.isArray(payload)) return payload;
+  if (!payload || typeof payload !== "object" || depth > 4) return [];
+
+  for (const key of ["date", "data", "interests", "result", "items", "payload"]) {
+    const rows = normalizeFavoriteInterests(payload[key], depth + 1);
+    if (rows.length) return rows;
+  }
+
+  return [];
+}
+
+function normalizeProductsPayload(payload, depth = 0) {
+  if (Array.isArray(payload)) return payload;
+  if (!payload || typeof payload !== "object" || depth > 4) return [];
+
+  for (const key of ["data", "products", "result", "items", "payload"]) {
+    const products = normalizeProductsPayload(payload[key], depth + 1);
+    if (products.length) return products;
+  }
+
+  return [];
+}
+
+async function renderFavoriteProducts() {
   const favoritesList = document.getElementById("favoritesList");
   if (!favoritesList) return;
 
-  const favorites = getFavoriteProducts();
-  if (!favorites.length) {
+  favoritesList.innerHTML =
+    '<p class="col-span-full py-8 text-center text-sm text-gray-500">در حال بارگذاری علاقه‌مندی‌ها...</p>';
+
+  try {
+    const [interestsResponse, productsResponse] = await Promise.all([
+      fetchWithAuth("/interests"),
+      fetchWithAuth("/products"),
+    ]);
+    for (const response of [interestsResponse, productsResponse]) {
+      if (
+        response?.status === false ||
+        response?.status === "error" ||
+        response?.authRequired
+      ) {
+        throw new Error(response.message || "دریافت علاقه‌مندی‌ها ناموفق بود.");
+      }
+    }
+
+    const interests = normalizeFavoriteInterests(interestsResponse);
+    const products = normalizeProductsPayload(productsResponse);
+    const productsById = new Map(
+      products.map((product) => [String(product.id ?? product.product_id), product]),
+    );
+    const favorites = interests
+      .map((interest) => ({
+        interest,
+        product: productsById.get(
+          String(interest.product_id ?? interest.productId ?? ""),
+        ),
+      }))
+      .filter(({ product }) => product);
+
+    try {
+      localStorage.setItem(
+        FAVORITES_STORAGE_KEY,
+        JSON.stringify(
+          favorites.map(({ product }) => ({
+            id: product.id ?? product.product_id,
+            title: product.title || product.name || "محصول بدون عنوان",
+            brand: product.brand || product.brand_name || "بدون برند",
+            price:
+              product.final_price ??
+              product.discount_price ??
+              product.price ??
+              0,
+            image: product.image || product.images?.[0] || "",
+          })),
+        ),
+      );
+    } catch (error) {
+      console.error("همگام‌سازی محلی علاقه‌مندی‌ها انجام نشد:", error);
+    }
+
+    if (!favorites.length) {
+      favoritesList.innerHTML = `
+        <p class="col-span-full py-8 text-center text-sm text-gray-500">
+          هنوز محصولی به علاقه‌مندی‌ها اضافه نشده است.
+        </p>
+      `;
+      return;
+    }
+
+    favoritesList.innerHTML = favorites
+      .map(({ interest, product }) => {
+        const productId = encodeURIComponent(product.id ?? product.product_id);
+        const interestId = escapeHtml(
+          interest.id ?? interest.interests_id ?? interest.interest_id ?? "",
+        );
+        const image = escapeHtml(
+          resolveProductImagePath(product.image || product.images?.[0] || ""),
+        );
+        const title = escapeHtml(product.title || product.name || "محصول");
+        const brand = escapeHtml(
+          product.brand || product.brand_name || "بدون برند",
+        );
+        const price = Number(
+          product.final_price ?? product.discount_price ?? product.price ?? 0,
+        ).toLocaleString("en-US");
+
+        return `
+          <article class="flex min-w-0 items-center gap-3 rounded-lg border border-gray-200 p-3">
+            <a href="../details/index.html?id=${productId}" class="flex min-w-0 flex-1 items-center gap-3">
+              <img src="${image}" alt="${title}" class="h-16 w-16 shrink-0 rounded bg-yasi object-contain p-1" />
+              <span class="min-w-0">
+                <span class="block truncate text-sm font-bold text-black-primary">${title}</span>
+                <span class="mt-1 block truncate text-xs text-gray-400">${brand}</span>
+                <span class="mt-1 block text-xs font-bold text-purple1">${price} تومان</span>
+              </span>
+            </a>
+            <button type="button" class="remove-api-favorite-btn shrink-0 rounded-full p-2 text-purple1" data-interest-id="${interestId}" aria-label="حذف از علاقه‌مندی‌ها">
+              <svg class="h-5 w-5 fill-purple1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21l7.8-7.5 1.1-1.1a5.5 5.5 0 0 0-.1-7.8Z" /></svg>
+            </button>
+          </article>
+        `;
+      })
+      .join("");
+
+    favoritesList
+      .querySelectorAll(".remove-api-favorite-btn")
+      .forEach((button) => {
+        button.addEventListener("click", async () => {
+          if (!button.dataset.interestId) {
+            window.showAppNotice("شناسهٔ علاقه‌مندی پیدا نشد.");
+            return;
+          }
+
+          button.disabled = true;
+          try {
+            const result = await fetchWithAuth("/interests", {
+              method: "DELETE",
+              body: { interests_id: button.dataset.interestId },
+            });
+            if (
+              result?.status === false ||
+              result?.status === "error" ||
+              result?.success === false ||
+              result?.ok === false
+            ) {
+              throw new Error(result.message || "حذف علاقه‌مندی انجام نشد.");
+            }
+            await renderFavoriteProducts();
+          } catch (error) {
+            console.error("حذف علاقه‌مندی از API ناموفق بود:", error);
+            window.showAppNotice(error.message || "حذف علاقه‌مندی انجام نشد.");
+            button.disabled = false;
+          }
+        });
+      });
+  } catch (error) {
+    console.error("دریافت علاقه‌مندی‌های کاربر از API ناموفق بود:", error);
     favoritesList.innerHTML = `
-      <p class="col-span-full py-8 text-center text-sm text-gray-500">
-        هنوز محصولی به علاقه‌مندی‌ها اضافه نشده است.
+      <p class="col-span-full py-8 text-center text-sm text-red-500">
+        دریافت علاقه‌مندی‌ها با خطا روبه‌رو شد. لطفاً دوباره تلاش کنید.
       </p>
     `;
-    return;
   }
-
-  favorites.forEach(registerFavoriteProduct);
-  favoritesList.innerHTML = favorites
-    .map((product) => {
-      const productId = encodeURIComponent(product.id);
-      const image = escapeHtml(resolveProductImagePath(product.image || ""));
-      const title = escapeHtml(product.title);
-      const brand = escapeHtml(product.brand);
-      const price = new Intl.NumberFormat("en-US").format(
-        Number(product.price) || 0,
-      );
-
-      return `
-        <article class="flex min-w-0 items-center gap-3 rounded-lg border border-gray-200 p-3">
-          <a href="../details/index.html?id=${productId}" class="flex min-w-0 flex-1 items-center gap-3">
-            <img src="${image}" alt="${title}" class="h-16 w-16 shrink-0 rounded bg-yasi object-contain p-1" />
-            <span class="min-w-0">
-              <span class="block truncate text-sm font-bold text-black-primary">${title}</span>
-              <span class="mt-1 block truncate text-xs text-gray-400">${brand}</span>
-              <span class="mt-1 block text-xs font-bold text-purple1">${price} تومان</span>
-            </span>
-          </a>
-          <button type="button" class="favorite-toggle-btn shrink-0 rounded-full p-2 text-purple1" data-product-id="${escapeHtml(product.id)}" aria-label="حذف از علاقه‌مندی‌ها" aria-pressed="true">
-            <svg class="h-5 w-5 fill-purple1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21l7.8-7.5 1.1-1.1a5.5 5.5 0 0 0-.1-7.8Z" /></svg>
-          </button>
-        </article>
-      `;
-    })
-    .join("");
 }
 
 function normalizeOrdersPayload(payload) {
@@ -72,6 +194,10 @@ function normalizeOrdersPayload(payload) {
   }
 
   return [];
+}
+
+function getOrderId(order) {
+  return order?.id ?? order?.order_id ?? order?.orderId ?? null;
 }
 
 function getStoredUser() {
@@ -99,16 +225,52 @@ const orderStatusLabels = {
   completed: "تکمیل شده",
 };
 
-function isUnpaidOrder(order) {
-  const status = String(order.payment_status || order.status || "")
+function getOrderStatus(order) {
+  const rawStatus = String(
+    order?.status ?? order?.order_status ?? order?.payment_status ?? "",
+  )
     .trim()
     .toLowerCase();
-  return [
-    "pending",
-    "unpaid",
-    "awaiting_payment",
-    "waiting_for_payment",
-  ].includes(status);
+  const paymentStatus = String(order?.payment_status ?? "")
+    .trim()
+    .toLowerCase();
+
+  if (
+    order?.cancel === true ||
+    order?.cancelled === true ||
+    order?.is_cancelled === true ||
+    ["canceled", "cancelled", "canceled_order"].includes(rawStatus)
+  ) {
+    return "canceled";
+  }
+
+  if (
+    ["paid", "success", "successful", "completed", "delivered"].includes(
+      paymentStatus || rawStatus,
+    ) ||
+    order?.is_paid === true ||
+    order?.paid === true ||
+    order?.payment_status === 1
+  ) {
+    return "paid";
+  }
+
+  if (
+    ["pending", "unpaid", "awaiting_payment", "waiting_for_payment", "failed"].includes(
+      paymentStatus || rawStatus,
+    ) ||
+    order?.is_paid === false ||
+    order?.paid === false ||
+    order?.payment_status === 0
+  ) {
+    return "unpaid";
+  }
+
+  return rawStatus || "processing";
+}
+
+function isUnpaidOrder(order) {
+  return getOrderStatus(order) === "unpaid";
 }
 
 function getOrderItems(order, depth = 0) {
@@ -179,34 +341,38 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function fetchCurrentProfile() {
-    try {
-      const storedUser = getStoredUser();
-      const response = await fetchWithAuth("/profile", { method: "GET" });
-      if (response?.status === false) return null;
-
-      const profile = response?.data ?? response?.user ?? response ?? null;
-      if (!profile || typeof profile !== "object") return null;
-
-      const normalizedProfile = {
-        ...profile,
-        name:
-          profile.name ||
-          profile.customer_name ||
-          profile.full_name ||
-          storedUser?.name ||
-          "",
-        mobile: profile.mobile || profile.phone || storedUser?.mobile || "",
-      };
-      localStorage.setItem("user", JSON.stringify(normalizedProfile));
-      localStorage.setItem("userData", JSON.stringify(normalizedProfile));
-      return normalizedProfile;
-    } catch (error) {
-      console.warn(
-        "Profile fetch failed, falling back to local storage:",
-        error,
-      );
-      return null;
+    const storedUser = getStoredUser();
+    const response = await fetchWithAuth("/profile", { method: "GET" });
+    if (
+      response?.status === false ||
+      response?.status === "error" ||
+      response?.authRequired
+    ) {
+      throw new Error(response.message || "دریافت اطلاعات حساب ناموفق بود.");
     }
+
+    const profile = response?.data ?? response?.user ?? response ?? null;
+    if (!profile || typeof profile !== "object") {
+      throw new Error("اطلاعات حساب از سرور دریافت نشد.");
+    }
+
+    const normalizedProfile = {
+      ...profile,
+      name:
+        profile.name ||
+        profile.customer_name ||
+        profile.full_name ||
+        storedUser?.name ||
+        "",
+      mobile: profile.mobile || profile.phone || storedUser?.mobile || "",
+      national_code: profile.national_code || profile.national_id || "",
+      full_address: profile.full_address || profile.address || "",
+    };
+    localStorage.setItem("user", JSON.stringify(normalizedProfile));
+    localStorage.setItem("userData", JSON.stringify(normalizedProfile));
+    sessionStorage.setItem("user", JSON.stringify(normalizedProfile));
+    sessionStorage.setItem("userData", JSON.stringify(normalizedProfile));
+    return normalizedProfile;
   }
 
   window.addEventListener("pageshow", () => {
@@ -413,6 +579,35 @@ document.addEventListener("DOMContentLoaded", () => {
       (completedFields / profileProgressFields.length) * 100,
     );
     const percentageLabel = `${percentage.toLocaleString("fa-IR")}٪`;
+    const progressColor =
+      percentage === 100
+        ? "green"
+        : percentage >= 50
+          ? "yellow"
+          : "red";
+    const progressBarColor = {
+      red: "bg-red-500",
+      yellow: "bg-yellow-500",
+      green: "bg-green-500",
+    }[progressColor];
+    const progressTextColor = {
+      red: "text-red-600",
+      yellow: "text-yellow-600",
+      green: "text-green-600",
+    }[progressColor];
+    const progressBarColors = [
+      "bg-red-500",
+      "bg-yellow-500",
+      "bg-green-500",
+      "bg-purple1",
+    ];
+    const progressTextColors = [
+      "text-red-600",
+      "text-yellow-600",
+      "text-green-600",
+      "text-purple1",
+    ];
+
     document.querySelectorAll("[data-profile-progress]").forEach((progress) => {
       progress.setAttribute("aria-valuenow", String(percentage));
       progress.setAttribute("aria-valuetext", percentageLabel);
@@ -421,11 +616,15 @@ document.addEventListener("DOMContentLoaded", () => {
       .querySelectorAll("[data-profile-completion-bar]")
       .forEach((progressBar) => {
         progressBar.style.width = `${percentage}%`;
+        progressBar.classList.remove(...progressBarColors);
+        progressBar.classList.add(progressBarColor);
       });
     document
       .querySelectorAll("[data-profile-completion-value]")
       .forEach((progressValue) => {
         progressValue.textContent = percentageLabel;
+        progressValue.classList.remove(...progressTextColors);
+        progressValue.classList.add(progressTextColor);
       });
 
     const name =
@@ -482,24 +681,22 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // 4. بارگذاری اطلاعات کاربر از API و localStorage
+  // 4. بارگذاری اطلاعات حساب از API
   async function loadUserData() {
     initProvinceSelect();
+    let user;
+    try {
+      user = await fetchCurrentProfile();
+    } catch (error) {
+      console.error("دریافت اطلاعات حساب از API ناموفق بود:", error);
+      window.showAppNotice(
+        error.message || "دریافت اطلاعات حساب ناموفق بود.",
+      );
+      return false;
+    }
 
-    const profile =
-      (await fetchCurrentProfile()) ||
-      JSON.parse(
-        localStorage.getItem("user") ||
-          localStorage.getItem("userData") ||
-          sessionStorage.getItem("user") ||
-          sessionStorage.getItem("userData") ||
-          "null",
-      ) ||
-      {};
-
-    const user = profile && typeof profile === "object" ? profile : {};
-    const name = user.name || user.customer_name || "یونس پیرمرادیان";
-    const phone = user.mobile || user.phone || "09225568686";
+    const name = user.name || user.customer_name || "";
+    const phone = user.mobile || user.phone || "";
     const initial = name.trim().charAt(0) || "ی";
 
     document
@@ -520,16 +717,21 @@ document.addEventListener("DOMContentLoaded", () => {
     const userAddressInput = document.getElementById("userAddressInput");
     if (userNameInput) userNameInput.value = name;
     if (userPhoneInput) userPhoneInput.value = phone;
-    if (userNationalIdInput) userNationalIdInput.value = user.national_id || "";
+    if (userNationalIdInput) {
+      userNationalIdInput.value = user.national_code || user.national_id || "";
+    }
     if (userBirthdateInput) userBirthdateInput.value = user.birthdate || "";
     if (userPostalCodeInput) userPostalCodeInput.value = user.postal_code || "";
-    if (userAddressInput) userAddressInput.value = user.address || "";
+    if (userAddressInput) {
+      userAddressInput.value = user.full_address || user.address || "";
+    }
 
     if (user.province && provinceSelect) {
       provinceSelect.value = user.province;
       updateCities(user.province, user.city || "");
     }
     updateProfileProgress();
+    return true;
   }
 
   // 5. ذخیره اطلاعات و ارسال به API
@@ -558,40 +760,22 @@ document.addEventListener("DOMContentLoaded", () => {
         );
         return;
       }
-
-      const currentStorage = JSON.parse(
-        localStorage.getItem("user") ||
-          localStorage.getItem("userData") ||
-          sessionStorage.getItem("user") ||
-          sessionStorage.getItem("userData") ||
-          "{}",
-      );
-      const optimisticUser = {
-        ...currentStorage,
-        name: updatedData.name,
-        mobile: updatedData.mobile,
-        national_id: updatedData.national_id,
-        birthdate: updatedData.birthdate,
-        province: updatedData.province,
-        city: updatedData.city,
-        postal_code: updatedData.postal_code,
-        address: updatedData.address,
-      };
-      localStorage.setItem("user", JSON.stringify(optimisticUser));
-      localStorage.setItem("userData", JSON.stringify(optimisticUser));
-      sessionStorage.setItem("user", JSON.stringify(optimisticUser));
-      sessionStorage.setItem("userData", JSON.stringify(optimisticUser));
+      if (updatedData.current_password && !updatedData.new_password) {
+        window.showAppNotice(
+          "برای تغییر رمز عبور، رمز عبور جدید را هم وارد کنید.",
+        );
+        return;
+      }
 
       try {
         const payload = {
           name: updatedData.name,
           mobile: updatedData.mobile,
-          national_id: updatedData.national_id,
-          birthdate: updatedData.birthdate,
+          national_code: updatedData.national_id,
           province: updatedData.province,
           city: updatedData.city,
           postal_code: updatedData.postal_code,
-          address: updatedData.address,
+          full_address: updatedData.address,
           change_password: Boolean(
             updatedData.current_password || updatedData.new_password,
           ),
@@ -604,25 +788,27 @@ document.addEventListener("DOMContentLoaded", () => {
           body: JSON.stringify(payload),
         });
 
-        if (result && result.status === false) {
-          window.showAppNotice(
-            result.message || "به‌روزرسانی مشخصات انجام نشد.",
-          );
-          return;
+        if (
+          result?.status === false ||
+          result?.status === "error" ||
+          result?.authRequired ||
+          result?.success === false ||
+          result?.ok === false
+        ) {
+          throw new Error(result.message || "به‌روزرسانی مشخصات انجام نشد.");
         }
 
-        const refreshedProfile = await fetchCurrentProfile();
-        const mergedUser = refreshedProfile || optimisticUser;
-
-        localStorage.setItem("user", JSON.stringify(mergedUser));
-        localStorage.setItem("userData", JSON.stringify(mergedUser));
-        sessionStorage.setItem("user", JSON.stringify(mergedUser));
-        sessionStorage.setItem("userData", JSON.stringify(mergedUser));
-        await loadUserData();
+        if (!(await loadUserData())) {
+          throw new Error("اطلاعات ذخیره شد، اما بارگذاری دوبارهٔ پروفایل ناموفق بود.");
+        }
+        document.getElementById("currentPasswordInput").value = "";
+        document.getElementById("newPasswordInput").value = "";
         window.showAppNotice("تغییرات با موفقیت اعمال شد.");
       } catch (error) {
         console.error("API Error:", error);
-        window.showAppNotice("خطا در به‌روزرسانی اطلاعات پروفایل.");
+        window.showAppNotice(
+          error.message || "خطا در به‌روزرسانی اطلاعات پروفایل.",
+        );
       }
     });
   }
@@ -692,6 +878,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       ordersListEl.innerHTML = orders
         .map((order) => {
+          const orderId = getOrderId(order);
           const orderCode =
             order.order_number || order.order_code || order.code || order.id;
           const orderDate = order.created_at || order.date || "-";
@@ -702,11 +889,14 @@ document.addEventListener("DOMContentLoaded", () => {
               order.payable_price ??
               0,
           );
-          const status = order.payment_status || order.status || "processing";
+          const status = getOrderStatus(order);
           const statusText =
-            order.statusText || orderStatusLabels[status] || status;
+            orderStatusLabels[status] || status;
           const statusClass =
-            status === "paid" ||
+            status === "canceled" ||
+            status === "cancelled"
+              ? "bg-red-100 text-red-800"
+              : status === "paid" ||
             status === "delivered" ||
             status === "completed"
               ? "bg-emerald-100 text-emerald-800"
@@ -733,12 +923,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 <div><span class="block text-[11px] text-gray-main">مبلغ سفارش</span><strong class="mt-1 block text-sm font-bold text-purple1">${orderTotal.toLocaleString("en-US")} تومان</strong></div>
               </div>
               <div class="flex flex-wrap items-center justify-end gap-2 border-t border-gray-primary/20 pt-4">
-                <button data-order-id="${escapeHtml(order.id)}" class="view-invoice-btn inline-flex items-center gap-1.5 rounded-xl bg-purple1 px-4 py-2 text-xs font-bold text-white transition-opacity hover:opacity-90">
+                <button data-order-id="${escapeHtml(orderId)}" class="view-invoice-btn inline-flex items-center gap-1.5 rounded-xl bg-purple1 px-4 py-2 text-xs font-bold text-white transition-opacity hover:opacity-90">
                   <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M7 3h7l5 5v13H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M14 3v5h5M9 13h6M9 17h6"/></svg>
                   مشاهده فاکتور
                 </button>
-                ${isUnpaidOrder(order) ? `<button data-order-id="${escapeHtml(order.id)}" class="restore-order-btn inline-flex items-center gap-1.5 rounded-xl border border-purple1/40 px-4 py-2 text-xs font-bold text-purple1 transition-colors hover:bg-yasi"><svg class="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h11a6 6 0 1 1-5.2 9M3 10l4-4m-4 4 4 4"/></svg>بازگردانی به سبد</button>` : ""}
-                <button data-order-id="${escapeHtml(order.id)}" class="delete-order-btn inline-flex items-center gap-1.5 rounded-xl border border-gray-primary/50 px-4 py-2 text-xs font-bold text-gray-main transition-colors hover:bg-yasi"><svg class="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M10 11v6m4-6v6M6 7l1 14h10l1-14M9 7V4h6v3"/></svg>حذف سفارش</button>
+                ${isUnpaidOrder(order) ? `<button data-order-id="${escapeHtml(orderId)}" class="restore-order-btn inline-flex items-center gap-1.5 rounded-xl border border-purple1/40 px-4 py-2 text-xs font-bold text-purple1 transition-colors hover:bg-yasi"><svg class="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h11a6 6 0 1 1-5.2 9M3 10l4-4m-4 4 4 4"/></svg>بازگردانی به سبد</button>` : ""}
+                <button data-order-id="${escapeHtml(orderId)}" class="delete-order-btn inline-flex items-center gap-1.5 rounded-xl border border-gray-primary/50 px-4 py-2 text-xs font-bold text-gray-main transition-colors hover:bg-yasi"><svg class="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 7h12M8 7v12h8V7M10 4h4"/></svg>لغو سفارش</button>
               </div>
             </article>
           `;
@@ -748,7 +938,7 @@ document.addEventListener("DOMContentLoaded", () => {
       ordersListEl.querySelectorAll(".view-invoice-btn").forEach((button) => {
         button.addEventListener("click", () => {
           const order = orders.find(
-            (item) => String(item.id) === String(button.dataset.orderId),
+            (item) => String(getOrderId(item)) === String(button.dataset.orderId),
           );
           if (order) openInvoiceModal(order);
         });
@@ -757,25 +947,37 @@ document.addEventListener("DOMContentLoaded", () => {
       ordersListEl.querySelectorAll(".delete-order-btn").forEach((button) => {
         button.addEventListener("click", async () => {
           const order = orders.find(
-            (item) => String(item.id) === String(button.dataset.orderId),
+            (item) => String(getOrderId(item)) === String(button.dataset.orderId),
           );
           if (!order) return;
+          const orderId = getOrderId(order);
+          if (orderId === null || orderId === "") {
+            window.showAppNotice("شناسه سفارش برای حذف پیدا نشد.");
+            return;
+          }
 
           const confirmed = await window.showAppConfirm(
-            "از حذف این سفارش مطمئن هستید؟ این کار قابل بازگشت نیست.",
+            "از لغو این سفارش مطمئن هستید؟ این کار قابل بازگشت نیست.",
           );
           if (!confirmed) return;
 
           button.disabled = true;
           try {
             const response = await fetchWithAuth("/order", {
-              method: "DELETE",
-              body: { id: order.id },
+              method: "PUT",
+              body: { id: orderId, cancel: true },
             });
-            if (response?.status === false || response?.authRequired) {
-              throw new Error(response.message || "حذف سفارش انجام نشد.");
+            if (
+              response?.status === false ||
+              response?.authRequired ||
+              response?.success === false ||
+              response?.ok === false
+            ) {
+              throw new Error(response.message || "لغو سفارش انجام نشد.");
             }
-            window.showAppNotice("سفارش با موفقیت حذف شد.");
+            order.status = "canceled";
+            order.payment_status = "canceled";
+            window.showAppNotice("سفارش با موفقیت لغو شد.");
             await loadUserOrders();
           } catch (error) {
             window.showAppNotice(error.message || "حذف سفارش انجام نشد.");
@@ -908,8 +1110,11 @@ document.addEventListener("DOMContentLoaded", () => {
             }
 
             const deleteResponse = await fetchWithAuth("/order", {
-              method: "DELETE",
-              body: { id: order.id },
+              method: "PUT",
+              body: {
+                id: getOrderId(order),
+                cancel: true,
+              },
             });
             if (
               deleteResponse?.status === false ||
@@ -918,7 +1123,7 @@ document.addEventListener("DOMContentLoaded", () => {
               deleteResponse?.ok === false
             ) {
               throw new Error(
-                "کالاها به سبد اضافه شدند، اما حذف سفارش قبلی ناموفق بود.",
+                "کالاها به سبد اضافه شدند، اما لغو سفارش قبلی ناموفق بود.",
               );
             }
 

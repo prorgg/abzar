@@ -60,6 +60,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const desktopAuthBtn = document.getElementById("desktopAuthBtn");
   const userProfileWrapper = document.getElementById("userProfileWrapper");
   const profileBtn = document.getElementById("desktopUserProfile");
+  const profileLabel = profileBtn?.querySelector("[data-profile-label]");
+  const profileIcon = profileBtn?.querySelector("[data-profile-icon]");
+  const hasExpandableProfile = Boolean(profileLabel && profileIcon);
   const userMenuDropdown = document.getElementById("userMenuDropdown");
   const chevron = document.getElementById("profileChevron");
 
@@ -89,18 +92,46 @@ document.addEventListener("DOMContentLoaded", () => {
     const fields = [
       user.name || user.customer_name || user.full_name,
       user.mobile || user.phone,
-      user.national_id || user.nationalId,
+      user.national_code || user.national_id || user.nationalId,
       user.birthdate || user.birth_date,
       user.province,
       user.city,
       user.postal_code || user.postalCode,
-      user.address,
+      user.full_address || user.address,
     ];
     const completedFields = fields.filter((value) =>
       String(value ?? "").trim(),
     ).length;
     const percentage = Math.round((completedFields / fields.length) * 100);
     const percentageLabel = `${percentage.toLocaleString("fa-IR")}٪`;
+    const progressColor =
+      percentage === 100
+        ? "green"
+        : percentage >= 50
+          ? "yellow"
+          : "red";
+    const progressBarColor = {
+      red: "bg-red-500",
+      yellow: "bg-yellow-500",
+      green: "bg-green-500",
+    }[progressColor];
+    const progressBarColors = [
+      "bg-red-500",
+      "bg-yellow-500",
+      "bg-green-500",
+      "bg-purple1",
+    ];
+    const progressTextColors = [
+      "text-red-600",
+      "text-yellow-600",
+      "text-green-600",
+      "text-purple1",
+    ];
+    const progressTextColor = {
+      red: "text-red-600",
+      yellow: "text-yellow-600",
+      green: "text-green-600",
+    }[progressColor];
 
     document.querySelectorAll("[data-profile-progress]").forEach((progress) => {
       progress.setAttribute("aria-valuenow", String(percentage));
@@ -110,11 +141,15 @@ document.addEventListener("DOMContentLoaded", () => {
       .querySelectorAll("[data-profile-completion-bar]")
       .forEach((progressBar) => {
         progressBar.style.width = `${percentage}%`;
+        progressBar.classList.remove(...progressBarColors);
+        progressBar.classList.add(progressBarColor);
       });
     document
       .querySelectorAll("[data-profile-completion-value]")
       .forEach((progressValue) => {
         progressValue.textContent = percentageLabel;
+        progressValue.classList.remove(...progressTextColors);
+        progressValue.classList.add(progressTextColor);
       });
   }
 
@@ -125,6 +160,7 @@ document.addEventListener("DOMContentLoaded", () => {
         localStorage.removeItem(key);
       },
     );
+    window.dispatchEvent(new Event("authstatechange"));
   }
 
   // 1. بررسی وضعیت لاگین و نمایش/مخفی‌سازی بخش‌ها
@@ -179,8 +215,7 @@ document.addEventListener("DOMContentLoaded", () => {
     } else {
       // مخفی کردن کامل پروفایل و نمایش دکمه ورود/ثبت‌نام
       if (desktopAuthBtn) {
-        desktopAuthBtn.classList.remove("hidden");
-        desktopAuthBtn.classList.add("lg:flex");
+        desktopAuthBtn.classList.add("hidden", "lg:flex");
       }
       if (mobileAuthBtn) {
         mobileAuthBtn.classList.remove("hidden");
@@ -196,18 +231,26 @@ document.addEventListener("DOMContentLoaded", () => {
       if (userMenuDropdown) {
         userMenuDropdown.classList.add("hidden");
       }
+      profileBtn?.setAttribute("aria-expanded", "false");
     }
   }
 
   // 2. بروزرسانی اطلاعات متنی کاربر در DOM
   function updateUserUI(user) {
     const name =
-      user.name || user.customer_name || user.mobile || "کاربر گرامی";
+      user.full_name ||
+      [user.first_name, user.last_name].filter(Boolean).join(" ") ||
+      user.name ||
+      user.customer_name ||
+      user.mobile ||
+      "کاربر گرامی";
     const mobile = user.mobile || user.phone || "---";
     const initial = name.trim().charAt(0).toUpperCase() || "ک";
 
     userNameEls.forEach((el) => (el.textContent = name));
     userInitialEls.forEach((el) => (el.textContent = initial));
+    if (profileLabel) profileLabel.textContent = name;
+    profileBtn?.setAttribute("title", name);
     if (userPhoneEl) userPhoneEl.textContent = mobile;
     updateProfileCompletion(user);
   }
@@ -219,17 +262,47 @@ document.addEventListener("DOMContentLoaded", () => {
       const isHidden = userMenuDropdown.classList.contains("hidden");
 
       if (isHidden) {
+        if (hasExpandableProfile) {
+          profileBtn.classList.remove("w-10", "px-0");
+          profileBtn.classList.add("w-48", "px-3");
+          profileLabel.classList.remove("hidden");
+          profileIcon.classList.add("hidden");
+        }
         userMenuDropdown.classList.remove("hidden");
+        profileBtn.setAttribute("aria-expanded", "true");
         if (chevron) chevron.style.transform = "rotate(180deg)";
+        document.querySelectorAll("[data-search-toggle]").forEach((toggle) => {
+          const searchForm = toggle.closest("[data-product-search-form]");
+          const searchInput = searchForm?.querySelector('input[name="search"]');
+          searchForm?.classList.remove("w-64", "px-3");
+          searchForm?.classList.add("w-10", "px-0");
+          searchInput?.classList.add("hidden");
+          toggle.setAttribute("aria-expanded", "false");
+          toggle.setAttribute("aria-label", "باز کردن جست‌وجو");
+        });
       } else {
+        if (hasExpandableProfile) {
+          profileBtn.classList.remove("w-48", "px-3");
+          profileBtn.classList.add("w-10", "px-0");
+          profileLabel.classList.add("hidden");
+          profileIcon.classList.remove("hidden");
+        }
         userMenuDropdown.classList.add("hidden");
+        profileBtn.setAttribute("aria-expanded", "false");
         if (chevron) chevron.style.transform = "rotate(0deg)";
       }
     });
 
     document.addEventListener("click", (e) => {
       if (userProfileWrapper && !userProfileWrapper.contains(e.target)) {
+        if (hasExpandableProfile) {
+          profileBtn.classList.remove("w-48", "px-3");
+          profileBtn.classList.add("w-10", "px-0");
+          profileLabel.classList.add("hidden");
+          profileIcon.classList.remove("hidden");
+        }
         userMenuDropdown.classList.add("hidden");
+        profileBtn.setAttribute("aria-expanded", "false");
         if (chevron) chevron.style.transform = "rotate(0deg)";
       }
     });
@@ -629,6 +702,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (token) {
           localStorage.setItem("token", token);
           sessionStorage.removeItem("token");
+          window.dispatchEvent(new Event("authstatechange"));
         }
 
         const user =

@@ -40,6 +40,54 @@ function normalizeOrdersPayload(payload) {
   return [];
 }
 
+function normalizeSettingsPayload(payload, depth = 0) {
+  if (!payload || typeof payload !== "object" || depth > 5) return {};
+
+  if (Array.isArray(payload)) {
+    return payload.reduce((settings, row) => {
+      if (row && typeof row === "object" && row.key != null) {
+        settings[row.key] = row.value ?? "";
+      }
+      return settings;
+    }, {});
+  }
+
+  for (const key of ["data", "settings", "result", "profile"]) {
+    if (payload[key] && typeof payload[key] === "object") {
+      const normalized = normalizeSettingsPayload(payload[key], depth + 1);
+      if (Object.keys(normalized).length) return normalized;
+    }
+  }
+
+  const rows = Object.values(payload).some(Array.isArray);
+  if (rows) {
+    return Object.values(payload).reduce((settings, group) => {
+      if (!Array.isArray(group)) return settings;
+      group.forEach((row) => {
+        if (row && typeof row === "object" && row.key != null) {
+          settings[row.key] = row.value ?? "";
+        }
+      });
+      return settings;
+    }, {});
+  }
+
+  return payload;
+}
+
+function getSetting(settings, ...keys) {
+  for (const key of keys) {
+    const value = key.split(".").reduce((current, part) => {
+      if (current && typeof current === "object") return current[part];
+      return undefined;
+    }, settings);
+    if (value !== undefined && value !== null && String(value).trim()) {
+      return String(value).trim();
+    }
+  }
+  return "";
+}
+
 async function initDashboard() {
   await Promise.all([
     fetchDashboardStats(),
@@ -126,10 +174,10 @@ async function fetchDashboardStats() {
 
 // 2. دریافت اطلاعات فروشگاه
 async function fetchShopInfo() {
+  const shopInfoElements = [...document.querySelectorAll("[data-shop-info]")];
   if (!canUsePermission("settings")) {
-    ["shop-phone", "shop-instagram", "shop-address"].forEach((id) => {
-      const element = document.getElementById(id);
-      if (element) element.innerText = "دسترسی ندارید";
+    shopInfoElements.forEach((element) => {
+      element.textContent = "دسترسی ندارید";
     });
     return;
   }
@@ -139,38 +187,114 @@ async function fetchShopInfo() {
       ["/settings", "/admin/settings", "/settings?general=true"],
       { method: "GET" },
     );
-    const payload = res?.data ?? res ?? {};
-    const settings = payload.settings ?? payload;
+    if (!res) throw new Error("پاسخ تنظیمات فروشگاه خالی است.");
+    const settings = normalizeSettingsPayload(res);
+    const values = {
+      name: getSetting(
+        settings,
+        "site_name",
+        "siteName",
+        "store_name",
+        "storeName",
+        "shop_name",
+        "shopName",
+        "name",
+      ),
+      phone: getSetting(
+        settings,
+        "contact_phone",
+        "contactPhone",
+        "telephone",
+        "phone",
+        "contact.phone",
+      ),
+      mobile: getSetting(
+        settings,
+        "contact_mobile",
+        "contactMobile",
+        "mobile",
+        "phone_number",
+        "phoneNumber",
+      ),
+      instagram: getSetting(
+        settings,
+        "instagram",
+        "shop_instagram",
+        "shopInstagram",
+        "store_instagram",
+        "storeInstagram",
+        "social.instagram",
+        "socials.instagram",
+        "contact.instagram",
+      ),
+      telegram: getSetting(
+        settings,
+        "telegram",
+        "shop_telegram",
+        "shopTelegram",
+        "store_telegram",
+        "storeTelegram",
+        "social.telegram",
+        "socials.telegram",
+        "contact.telegram",
+      ),
+      rubika: getSetting(
+        settings,
+        "rubika",
+        "roobika",
+        "shop_rubika",
+        "shopRubika",
+        "store_rubika",
+        "storeRubika",
+        "social.rubika",
+        "socials.rubika",
+        "contact.rubika",
+      ),
+      whatsapp: getSetting(
+        settings,
+        "whatsapp",
+        "shop_whatsapp",
+        "shopWhatsapp",
+        "store_whatsapp",
+        "storeWhatsapp",
+        "social.whatsapp",
+        "socials.whatsapp",
+        "contact.whatsapp",
+      ),
+      address: getSetting(
+        settings,
+        "store_address",
+        "storeAddress",
+        "address",
+        "shop_address",
+        "shopAddress",
+        "contact_address",
+        "contactAddress",
+        "location",
+      ),
+      shipping: getSetting(
+        settings,
+        "shipping_cost",
+        "shippingCost",
+      ),
+    };
+    const formatShippingCost = (value) => {
+      const amount = Number(value);
+      return value && Number.isFinite(amount)
+        ? `${amount.toLocaleString("en-US")} تومان`
+        : "";
+    };
+    values.shipping = formatShippingCost(values.shipping);
 
-    const phoneEl = document.getElementById("shop-phone");
-    const instaEl = document.getElementById("shop-instagram");
-    const addressEl = document.getElementById("shop-address");
-
-    if (phoneEl)
-      phoneEl.innerText =
-        settings.contact_phone ||
-        settings.phone ||
-        settings.mobile ||
-        settings.contactMobile ||
-        "ثبت نشده";
-
-    if (instaEl)
-      instaEl.innerText = settings.instagram || "ثبت نشده";
-
-    if (addressEl)
-      addressEl.innerText =
-        settings.store_address ||
-        settings.address ||
-        settings.shop_address ||
-        "ثبت نشده";
+    shopInfoElements.forEach((element) => {
+      const value = values[element.dataset.shopInfo] || "ثبت نشده";
+      element.textContent = value;
+    });
   } catch (error) {
     console.error("خطا در دریافت اطلاعات فروشگاه:", error);
-    const phoneEl = document.getElementById("shop-phone");
-    const instaEl = document.getElementById("shop-instagram");
-    const addressEl = document.getElementById("shop-address");
-    if (phoneEl) phoneEl.innerText = "ثبت نشده";
-    if (instaEl) instaEl.innerText = "ثبت نشده";
-    if (addressEl) addressEl.innerText = "ثبت نشده";
+    shopInfoElements.forEach((element) => {
+      element.textContent = "دریافت ناموفق بود";
+    });
   }
 }
 

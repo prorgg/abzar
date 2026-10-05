@@ -1,100 +1,148 @@
 import { BASE_URL } from "./data.js";
 
-// ==========================================================================
-// اطلاعات فروشگاه (Site Info) — گرفتن اطلاعات حساب ادمین از بک‌اند و نمایش
-// آن در فوتر همه صفحات و بخش «راه‌های ارتباطی» صفحه درباره‌ما.
-// منبع داده فقط بک‌اند است؛ اگر مقداری برنگردد، متن پیش‌فرض HTML باقی می‌ماند.
-// ==========================================================================
-
-const SETTINGS_ENDPOINTS = [
-  "/settings",
-  "/admin/settings",
-  "/settings?general=true",
-];
-
-function getToken() {
-  let token = localStorage.getItem("token");
-  if (!token) return "";
-  token = token.replace(/^"(.*)"$/, "$1");
-  return token.startsWith("Bearer ") ? token : `Bearer ${token}`;
-}
-
-// یک GET عمومی مستقیم (بدون گیت auth ماژول data.js) که JSON برمی‌گرداند یا null.
-async function getJson(endpoint, withToken = false) {
-  try {
-    const headers = { Accept: "application/json" };
-    if (withToken) {
-      const token = getToken();
-      if (token) headers["Authorization"] = token;
-    }
-    const response = await fetch(`${BASE_URL}${endpoint}`, {
-      method: "GET",
-      headers,
-    });
-    if (!response.ok) return null;
-    const text = await response.text();
-    return text ? JSON.parse(text) : null;
-  } catch {
-    return null;
+async function getSettings() {
+  const response = await fetch(`${BASE_URL}/settings`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+  if (!response.ok) {
+    throw new Error(`دریافت تنظیمات فروشگاه ناموفق بود (HTTP ${response.status})`);
   }
+
+  const result = await response.json();
+  if (result?.status === false || result?.status === "error") {
+    throw new Error(result.message || "دریافت تنظیمات فروشگاه ناموفق بود.");
+  }
+  return result;
 }
 
-function normalize(res) {
-  const payload = res?.data ?? res ?? {};
-  const s = payload.settings ?? payload.user ?? payload.profile ?? payload;
-  if (!s || typeof s !== "object") return {};
+function flattenSettings(response) {
+  let payload = response;
+
+  for (let depth = 0; depth < 5; depth += 1) {
+    if (!payload || typeof payload !== "object") return {};
+    const nested = payload.settings ?? payload.data ?? payload.result;
+    if (!nested || typeof nested !== "object") break;
+    payload = nested;
+  }
+
+  if (Array.isArray(payload)) {
+    return payload.reduce((settings, row) => {
+      if (row && typeof row === "object" && row.key != null) {
+        settings[row.key] = row.value ?? "";
+      }
+      return settings;
+    }, {});
+  }
+
+  if (!payload || typeof payload !== "object") return {};
+
+  const settings = {};
+  Object.values(payload).forEach((group) => {
+    if (!Array.isArray(group)) return;
+    group.forEach((row) => {
+      if (row && typeof row === "object" && row.key != null) {
+        settings[row.key] = row.value ?? "";
+      }
+    });
+  });
+
+  return Object.keys(settings).length > 0 ? settings : payload;
+}
+
+function normalize(response) {
+  const settings = flattenSettings(response);
+  const social = settings.social ?? settings.socials ?? {};
+  const contact = settings.contact ?? {};
 
   return {
-    name: s.name || s.full_name || s.fullName || s.display_name || "",
+    name:
+      settings.site_name ||
+      settings.siteName ||
+      settings.store_name ||
+      settings.shop_name ||
+      settings.name ||
+      settings.full_name ||
+      settings.fullName ||
+      settings.display_name ||
+      "",
     phone:
-      s.contact_phone || s.phone || s.mobile || s.contactMobile || s.phone_number || "",
-    email: s.email || "",
-    instagram: s.instagram || "",
-    telegram: s.telegram || "",
-    rubika: s.rubika || s.roobika || "",
-    whatsapp: s.whatsapp || s.whats_app || "",
-    address: s.store_address || s.address || s.shop_address || "",
-    website: s.website || s.site || s.site_url || "",
-    work_hours: s.work_hours || s.working_hours || s.workHours || "",
+      settings.contact_phone ||
+      settings.phone ||
+      settings.phone_number ||
+      contact.phone ||
+      "",
+    mobile:
+      settings.contact_mobile ||
+      settings.contactMobile ||
+      settings.mobile ||
+      settings.phone_number ||
+      "",
+    instagram:
+      settings.instagram ||
+      settings.shop_instagram ||
+      settings.store_instagram ||
+      social.instagram ||
+      contact.instagram ||
+      "",
+    telegram:
+      settings.telegram ||
+      settings.shop_telegram ||
+      settings.store_telegram ||
+      social.telegram ||
+      contact.telegram ||
+      "",
+    rubika:
+      settings.rubika ||
+      settings.roobika ||
+      settings.shop_rubika ||
+      settings.store_rubika ||
+      social.rubika ||
+      contact.rubika ||
+      "",
+    whatsapp:
+      settings.whatsapp ||
+      settings.whats_app ||
+      settings.shop_whatsapp ||
+      settings.store_whatsapp ||
+      social.whatsapp ||
+      contact.whatsapp ||
+      "",
+    address:
+      settings.store_address ||
+      settings.address ||
+      settings.shop_address ||
+      settings.contact_address ||
+      contact.address ||
+      settings.location ||
+      "",
+    website:
+      settings.website ||
+      settings.site ||
+      settings.site_url ||
+      settings.siteUrl ||
+      "",
+    work_hours:
+      settings.work_hours ||
+      settings.working_hours ||
+      settings.workHours ||
+      settings.workingHours ||
+      "",
   };
 }
 
-async function fetchSiteInfo() {
-  // بک‌اند فعلاً endpoint عمومی (بدون توکن) برای اطلاعات فروشگاه ندارد؛ مسیرهای
-  // /settings و /admin-users فقط با توکن ادمین کار می‌کنند و برای بازدیدکننده‌ی
-  // عمومی 401 می‌دهند. پس تا وقتی توکن نیست هیچ درخواستی نمی‌زنیم تا کنسول خطا
-  // نگیرد و متن پیش‌فرض HTML حفظ شود. وقتی بک‌اند endpoint عمومی اضافه کرد،
-  // این گارد را بردار و آن endpoint را این‌جا صدا بزن.
-  if (!getToken()) return {};
-
-  // اگر ادمین وارد شده، تازه‌ترین پروفایل حساب را هم امتحان کن.
-  const profile = await getJson("/admin-users?profile=true", true);
-  const normalizedProfile = normalize(profile);
-  if (hasAnyValue(normalizedProfile)) return normalizedProfile;
-
-  for (const endpoint of SETTINGS_ENDPOINTS) {
-    const res = await getJson(endpoint, true);
-    const normalized = normalize(res);
-    if (hasAnyValue(normalized)) return normalized;
-  }
-  return {};
-}
-
-function hasAnyValue(info) {
-  return Object.values(info || {}).some(
-    (value) => typeof value === "string" && value.trim() !== "",
-  );
-}
-
-// ساخت لینک از روی مقدار هر کانال
 function buildLink(kind, value) {
   const raw = String(value || "").trim();
   if (!raw) return "";
-  const handle = raw.replace(/^@/, "").replace(/^https?:\/\/[^/]+\//i, "").trim();
+  const handle = raw
+    .replace(/^@/, "")
+    .replace(/^https?:\/\/[^/]+\//i, "")
+    .trim();
   const digits = raw.replace(/[^\d]/g, "");
 
   switch (kind) {
     case "phone":
+    case "mobile":
       return digits ? `tel:${digits}` : "";
     case "instagram":
       return `https://instagram.com/${handle}`;
@@ -111,38 +159,112 @@ function buildLink(kind, value) {
   }
 }
 
-function applySiteInfo(info) {
-  // پر کردن متن‌ها
-  document.querySelectorAll("[data-site-info]").forEach((el) => {
-    const key = el.getAttribute("data-site-info");
-    const value = info[key];
-    if (value && String(value).trim() !== "") {
-      el.textContent = value;
-      revealHolder(el, key);
-    }
-  });
-
-  // تنظیم لینک‌ها
-  document.querySelectorAll("[data-site-link]").forEach((el) => {
-    const kind = el.getAttribute("data-site-link");
-    const href = buildLink(kind, info[kind]);
-    if (href) {
-      el.setAttribute("href", href);
-      revealHolder(el, kind);
-    }
-  });
+function getHolder(element, key) {
+  const item = element.closest("[data-site-item]");
+  if (item?.getAttribute("data-site-item") === key) return item;
+  return element.closest("li");
 }
 
-// اگر آیتم فوتر/کارت به‌صورت پیش‌فرض hidden بود، وقتی مقدار داشت نمایش بده.
-function revealHolder(el, key) {
-  const holder = el.closest("[data-site-item]");
-  if (holder && holder.getAttribute("data-site-item") === key) {
-    holder.classList.remove("hidden");
+function setHolderVisibility(element, key, visible) {
+  const holder = getHolder(element, key);
+  if (holder) holder.classList.toggle("hidden", !visible);
+}
+
+async function resolveBaladLocation(address) {
+  const link = document.querySelector('[data-site-map-link="balad"]');
+  if (!link || !address) return;
+
+  const fallbackUrl = `https://balad.ir/search?query=${encodeURIComponent(address)}`;
+  link.href = fallbackUrl;
+
+  const response = await fetch(
+    `https://search.raah.ir/v6/?text=${encodeURIComponent(address)}`,
+    { headers: { Accept: "application/json" } },
+  );
+  if (!response.ok) {
+    throw new Error(`جست‌وجوی مکان در بلد ناموفق بود (HTTP ${response.status})`);
   }
+
+  const result = await response.json();
+  const places = Array.isArray(result?.results) ? result.results : [];
+  const place = places.find(
+    (item) =>
+      item?.type === "poi" &&
+      item.id &&
+      Array.isArray(item.center_point) &&
+      item.center_point.length >= 2 &&
+      item.center_point.every((coordinate) => Number.isFinite(Number(coordinate))),
+  );
+
+  if (!place) {
+    throw new Error("برای آدرس فروشگاه در بلد مکان دقیقی پیدا نشد.");
+  }
+
+  const [longitude, latitude] = place.center_point.map(Number);
+  link.href = `https://balad.ir/p/${encodeURIComponent(place.id)}#15/${latitude}/${longitude}`;
+}
+
+function applySiteInfo(info) {
+  document.querySelectorAll("[data-site-info]").forEach((element) => {
+    const key = element.getAttribute("data-site-info");
+    const value = info[key];
+    const hasValue = value != null && String(value).trim() !== "";
+
+    element.textContent = hasValue ? value : "";
+    setHolderVisibility(element, key, hasValue);
+  });
+
+  document.querySelectorAll("[data-site-link]").forEach((element) => {
+    const kind = element.getAttribute("data-site-link");
+    const href = buildLink(kind, info[kind]);
+    if (href) {
+      element.setAttribute("href", href);
+      setHolderVisibility(element, kind, true);
+    } else {
+      element.removeAttribute("href");
+      setHolderVisibility(
+        element,
+        kind,
+        info[kind] != null && String(info[kind]).trim() !== "",
+      );
+    }
+  });
+
+  const address = String(info.address || "").trim();
+  const mapFrame = document.querySelector("[data-site-map-frame]");
+  const mapPlaceholder = document.querySelector("[data-site-map-placeholder]");
+  const directions = document.querySelector("[data-site-directions]");
+
+  document.querySelectorAll("[data-site-map-link]").forEach((element) => {
+    const provider = element.getAttribute("data-site-map-link");
+    if (!address) {
+      element.removeAttribute("href");
+      return;
+    }
+
+    const query = encodeURIComponent(address);
+    const mapUrls = {
+      balad: `https://balad.ir/search?query=${query}`,
+      neshan: `https://neshan.org/maps/search/${query}`,
+    };
+    const href = mapUrls[provider];
+    if (href) element.setAttribute("href", href);
+  });
+
+  if (directions) directions.classList.toggle("hidden", !address);
+  if (mapFrame) {
+    if (address) {
+      mapFrame.src = `https://www.google.com/maps?q=${encodeURIComponent(address)}&output=embed`;
+      mapFrame.classList.remove("hidden");
+    } else {
+      mapFrame.removeAttribute("src");
+      mapFrame.classList.add("hidden");
+    }
+  }
+  if (mapPlaceholder) mapPlaceholder.classList.toggle("hidden", Boolean(address));
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
-  // فقط وقتی در صفحه‌ای عنصر مربوطه هست کار کن.
   if (
     !document.querySelector("[data-site-info]") &&
     !document.querySelector("[data-site-link]")
@@ -150,10 +272,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
+  applySiteInfo({});
   try {
-    const info = await fetchSiteInfo();
-    if (hasAnyValue(info)) applySiteInfo(info);
-  } catch (err) {
-    console.error("خطا در دریافت اطلاعات فروشگاه:", err?.message || err);
+    const info = normalize(await getSettings());
+    applySiteInfo(info);
+    try {
+      await resolveBaladLocation(String(info.address || "").trim());
+    } catch (error) {
+      console.error("خطا در ساخت لینک موقعیت بلد:", error?.message || error);
+    }
+  } catch (error) {
+    console.error("خطا در دریافت اطلاعات فروشگاه:", error?.message || error);
   }
 });

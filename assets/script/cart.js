@@ -375,26 +375,18 @@ export async function clearCart() {
 
 function parsePersianInt(val) {
   if (val === null || val === undefined || val === "") return 0;
-  if (typeof val === "number") return isNaN(val) ? 0 : Math.round(val);
+  if (typeof val === "number") return Number.isFinite(val) ? Math.round(val) : 0;
 
-  let str = String(val).trim();
+  const normalized = String(val)
+    .trim()
+    .replace(/[۰-۹]/g, (digit) => String(digit.charCodeAt(0) - 0x06f0))
+    .replace(/[٠-٩]/g, (digit) => String(digit.charCodeAt(0) - 0x0660))
+    .replace(/٫/g, ".")
+    .replace(/[٬,]/g, "")
+    .replace(/[^\d.-]/g, "");
+  const parsed = Number(normalized);
 
-  // تبدیل ارقام فارسی و عربی به انگلیسی
-  const faDigits = "0123456789";
-  const arDigits = "0123456789";
-
-  str = str.replace(/[0-9]/g, (w) => faDigits.indexOf(w));
-  str = str.replace(/[0-9]/g, (w) => arDigits.indexOf(w));
-
-  // استخراج عدد صحیح یا اعشاری
-  const floatVal = parseFloat(str);
-  if (!isNaN(floatVal)) {
-    return Math.round(floatVal);
-  }
-
-  // حذف کاراکترهای غیرعددی
-  const cleanStr = str.replace(/[^0-9]/g, "");
-  return parseInt(cleanStr, 10) || 0;
+  return Number.isFinite(parsed) ? Math.round(parsed) : 0;
 }
 
 export function updateCartBadgesAndSummary(
@@ -733,6 +725,8 @@ export async function fetchAndRenderCart() {
 const checkoutState = {
   step: 1,
   address: "",
+  savedAddress: "",
+  useSavedAddress: true,
   name: "",
   phone: "",
   shippingCost: 30000,
@@ -855,11 +849,58 @@ async function loadShippingProfile() {
 
   try {
     const response = await fetchWithAuth("/profile", { method: "GET" });
+    if (
+      response?.status === false ||
+      response?.status === "error" ||
+      response?.authRequired
+    ) {
+      throw new Error(response.message || "دریافت اطلاعات حساب ناموفق بود.");
+    }
     const profile = response?.data || response?.user || response;
     if (profile?.name) nameInput.value = profile.name;
     if (profile?.mobile) phoneInput.value = profile.mobile;
+    checkoutState.savedAddress = String(
+      profile?.full_address || profile?.address || "",
+    ).trim();
+    checkoutState.useSavedAddress = Boolean(checkoutState.savedAddress);
+
+    const savedAddressOption = document.getElementById("saved-address-option");
+    const savedAddressText = document.getElementById("saved-shipping-address");
+    const noSavedAddress = document.getElementById("no-saved-address");
+    const savedAddressRadio = document.getElementById("use-saved-address");
+    const newAddressForm = document.getElementById("new-address-form");
+    const addAddressButton = document.getElementById("add-new-address-btn");
+
+    if (savedAddressText) {
+      savedAddressText.textContent =
+        checkoutState.savedAddress || "آدرسی در حساب ذخیره نشده است.";
+    }
+    savedAddressOption?.classList.toggle(
+      "hidden",
+      !checkoutState.savedAddress,
+    );
+    noSavedAddress?.classList.toggle(
+      "hidden",
+      Boolean(checkoutState.savedAddress),
+    );
+    if (savedAddressRadio) {
+      savedAddressRadio.checked = Boolean(checkoutState.savedAddress);
+    }
+    newAddressForm?.classList.toggle(
+      "hidden",
+      Boolean(checkoutState.savedAddress),
+    );
+    if (addAddressButton) {
+      addAddressButton.classList.toggle(
+        "hidden",
+        !checkoutState.savedAddress,
+      );
+    }
   } catch (error) {
-    console.warn("اطلاعات پروفایل برای فرم ارسال دریافت نشد:", error.message);
+    console.error("اطلاعات پروفایل برای فرم ارسال دریافت نشد:", error);
+    window.showAppNotice(
+      error.message || "دریافت اطلاعات حساب برای ارسال ناموفق بود.",
+    );
   }
 }
 
@@ -899,15 +940,118 @@ function bindCheckoutListeners() {
     updateCheckoutProgress(1);
   });
 
+  const newAddressForm = document.getElementById("new-address-form");
+  const newAddressInput = document.getElementById("shipping-address");
+  const addAddressButton = document.getElementById("add-new-address-btn");
+
+  addAddressButton?.addEventListener("click", () => {
+    checkoutState.useSavedAddress = false;
+    const savedAddressRadio = document.getElementById("use-saved-address");
+    if (savedAddressRadio) savedAddressRadio.checked = false;
+    newAddressForm?.classList.remove("hidden");
+    addAddressButton.classList.add("hidden");
+    newAddressInput?.focus();
+  });
+
+  document
+    .getElementById("use-saved-address")
+    ?.addEventListener("change", (event) => {
+      if (!event.currentTarget.checked) return;
+      checkoutState.useSavedAddress = true;
+      newAddressForm?.classList.add("hidden");
+      addAddressButton?.classList.remove("hidden");
+    });
+
+  document
+    .getElementById("cancel-new-address-btn")
+    ?.addEventListener("click", () => {
+      checkoutState.useSavedAddress = Boolean(checkoutState.savedAddress);
+      const savedAddressRadio = document.getElementById("use-saved-address");
+      if (savedAddressRadio) {
+        savedAddressRadio.checked = checkoutState.useSavedAddress;
+      }
+      newAddressForm?.classList.add("hidden");
+      addAddressButton?.classList.toggle(
+        "hidden",
+        !checkoutState.savedAddress,
+      );
+      if (newAddressInput) newAddressInput.value = "";
+    });
+
+  document
+    .getElementById("save-new-address-btn")
+    ?.addEventListener("click", async (event) => {
+      const button = event.currentTarget;
+      const address = newAddressInput?.value.trim() || "";
+      if (!address) {
+        window.showAppNotice("لطفاً آدرس کامل را وارد کنید.");
+        newAddressInput?.focus();
+        return;
+      }
+
+      button.disabled = true;
+      try {
+        const response = await fetchWithAuth("/profile", {
+          method: "POST",
+          body: {
+            full_address: address,
+          },
+        });
+        if (
+          response?.status === false ||
+          response?.status === "error" ||
+          response?.authRequired ||
+          response?.success === false ||
+          response?.ok === false
+        ) {
+          throw new Error(response.message || "ذخیره آدرس جدید ناموفق بود.");
+        }
+
+        checkoutState.savedAddress = address;
+        checkoutState.useSavedAddress = true;
+        const savedAddressText = document.getElementById(
+          "saved-shipping-address",
+        );
+        const savedAddressRadio = document.getElementById("use-saved-address");
+        const savedAddressOption = document.getElementById(
+          "saved-address-option",
+        );
+        const noSavedAddress = document.getElementById("no-saved-address");
+
+        if (savedAddressText) savedAddressText.textContent = address;
+        savedAddressRadio.checked = true;
+        savedAddressOption.classList.remove("hidden");
+        noSavedAddress.classList.add("hidden");
+        newAddressForm.classList.add("hidden");
+        addAddressButton.classList.remove("hidden");
+        newAddressInput.value = "";
+
+        window.showAppNotice("آدرس جدید در حساب شما ذخیره شد.");
+      } catch (error) {
+        console.error("ذخیره آدرس جدید ناموفق بود:", error);
+        window.showAppNotice(error.message || "ذخیره آدرس جدید ناموفق بود.");
+      } finally {
+        button.disabled = false;
+      }
+    });
+
   const goToShippingStep = () => {
     checkoutState.name =
       document.getElementById("shipping-name")?.value.trim() || "";
     checkoutState.phone =
       document.getElementById("shipping-phone")?.value.trim() || "";
-    checkoutState.address =
-      document.getElementById("shipping-address")?.value.trim() || "";
+    if (!checkoutState.useSavedAddress) {
+      window.showAppNotice("برای ادامه، ابتدا آدرس جدید را ذخیره کنید.");
+      return false;
+    }
+    checkoutState.address = checkoutState.savedAddress;
 
     if (!checkoutState.name || !checkoutState.phone || !checkoutState.address) {
+      if (!checkoutState.address) {
+        window.showAppNotice(
+          "آدرس ذخیره‌شده را انتخاب کنید یا آدرس جدید را وارد و ذخیره کنید.",
+        );
+      }
       return false;
     }
 
@@ -1111,7 +1255,9 @@ if (document.documentElement.dataset.cartClickHandlerAttached !== "true") {
 
         const profile =
           profileResponse?.data ?? profileResponse?.user ?? profileResponse;
-        const shippingAddress = String(profile?.address || "").trim();
+        const shippingAddress = String(
+          profile?.full_address || profile?.address || "",
+        ).trim();
         if (!shippingAddress) {
           await fetchAndRenderCart();
           throw new Error(

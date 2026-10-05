@@ -1,3 +1,5 @@
+import { fetchWithAuth } from "./data.js";
+
 export const FAVORITES_STORAGE_KEY = "abzari:favorite-products";
 
 const registeredProducts = new Map();
@@ -64,6 +66,21 @@ export function getFavoriteProducts() {
   }
 }
 
+function updateFavoriteButtons() {
+  const favoriteIds = new Set(getFavoriteProducts().map((product) => product.id));
+  document.querySelectorAll(".favorite-toggle-btn").forEach((button) => {
+    const active = favoriteIds.has(String(button.dataset.productId ?? ""));
+    button.setAttribute("aria-pressed", String(active));
+    button.setAttribute(
+      "aria-label",
+      active ? "حذف از علاقه‌مندی‌ها" : "افزودن به علاقه‌مندی‌ها",
+    );
+    const icon = button.querySelector("svg");
+    icon?.classList.toggle("fill-purple1", active);
+    icon?.classList.toggle("fill-none", !active);
+  });
+}
+
 export function isFavorite(productId) {
   const id = String(productId ?? "");
   return getFavoriteProducts().some((product) => product.id === id);
@@ -74,16 +91,21 @@ export function toggleFavorite(product) {
   if (!favorite) return false;
 
   registerFavoriteProduct(product);
-  const favorites = getFavoriteProducts();
-  const existingIndex = favorites.findIndex((item) => item.id === favorite.id);
-  const added = existingIndex < 0;
+  const existing = getFavoriteProducts().some(
+    (item) => item.id === favorite.id,
+  );
+  return setFavoriteState(product, !existing);
+}
 
-  if (added) {
-    favorites.push(favorite);
-  } else {
-    favorites.splice(existingIndex, 1);
-  }
+function setFavoriteState(product, added) {
+  const favorite = normalizeFavorite(product);
+  if (!favorite) return false;
 
+  registerFavoriteProduct(product);
+  const favorites = getFavoriteProducts().filter(
+    (item) => item.id !== favorite.id,
+  );
+  if (added) favorites.push(favorite);
   try {
     localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(favorites));
   } catch (error) {
@@ -112,27 +134,154 @@ export function toggleFavorite(product) {
   return added;
 }
 
+function getInterestRows(payload, depth = 0) {
+  if (Array.isArray(payload)) return payload;
+  if (!payload || typeof payload !== "object" || depth > 4) return [];
+
+  for (const key of ["date", "data", "interests", "result", "items", "payload"]) {
+    const rows = getInterestRows(payload[key], depth + 1);
+    if (rows.length) return rows;
+  }
+
+  return [];
+}
+
+async function toggleAccountFavorite(product) {
+  const favorite = normalizeFavorite(product);
+  if (!favorite) return false;
+
+  const interestsResponse = await fetchWithAuth("/interests");
+  if (
+    interestsResponse?.status === false ||
+    interestsResponse?.status === "error" ||
+    interestsResponse?.authRequired
+  ) {
+    throw new Error(
+      interestsResponse.message || "دریافت علاقه‌مندی‌ها ناموفق بود.",
+    );
+  }
+
+  const existing = getInterestRows(interestsResponse).find(
+    (interest) =>
+      String(
+        interest.product_id ??
+          interest.productId ??
+          interest.product?.id ??
+          interest.product?.product_id ??
+          "",
+      ) === favorite.id,
+  );
+  const added = !existing;
+  const interestId =
+    existing?.id ?? existing?.interests_id ?? existing?.interest_id;
+  if (!added && (interestId === null || interestId === undefined)) {
+    throw new Error("شناسهٔ علاقه‌مندی برای حذف از API پیدا نشد.");
+  }
+  const response = await fetchWithAuth("/interests", {
+    method: added ? "POST" : "DELETE",
+    body: added
+      ? { product_id: favorite.id }
+      : { interests_id: interestId },
+  });
+  if (
+    response?.status === false ||
+    response?.status === "error" ||
+    response?.authRequired ||
+    response?.success === false ||
+    response?.ok === false
+  ) {
+    throw new Error(
+      response.message || "به‌روزرسانی علاقه‌مندی‌ها انجام نشد.",
+    );
+  }
+
+  return setFavoriteState(product, added);
+}
+
+async function syncAccountFavorites() {
+  if (!localStorage.getItem("token")) return;
+
+  try {
+    const response = await fetchWithAuth("/interests");
+    if (
+      response?.status === false ||
+      response?.status === "error" ||
+      response?.authRequired ||
+      response?.success === false ||
+      response?.ok === false
+    ) {
+      throw new Error(response.message || "دریافت علاقه‌مندی‌ها ناموفق بود.");
+    }
+
+    const savedFavorites = new Map(
+      getFavoriteProducts().map((favorite) => [favorite.id, favorite]),
+    );
+    const favorites = getInterestRows(response)
+      .map((interest) => {
+        const product = interest.product ?? interest;
+        const id =
+          interest.product_id ??
+          interest.productId ??
+          product.id ??
+          product.product_id;
+        if (id === null || id === undefined || id === "") return null;
+
+        return normalizeFavorite({
+          ...savedFavorites.get(String(id)),
+          ...(product && typeof product === "object" ? product : {}),
+          id,
+        });
+      })
+      .filter(Boolean);
+
+    localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(favorites));
+    updateFavoriteButtons();
+    window.dispatchEvent(new CustomEvent("favoriteschange"));
+  } catch (error) {
+    console.error("همگام‌سازی علاقه‌مندی‌ها با API ناموفق بود:", error);
+    window.showAppNotice?.(
+      error.message || "دریافت علاقه‌مندی‌های حساب کاربری ناموفق بود.",
+    );
+  }
+}
+
 document.addEventListener("click", (event) => {
   const button = event.target.closest(".favorite-toggle-btn");
   if (!button) return;
 
   event.preventDefault();
   const product = registeredProducts.get(String(button.dataset.productId));
-  if (product) toggleFavorite(product);
+  if (!product) return;
+
+  if (!localStorage.getItem("token")) {
+    toggleFavorite(product);
+    return;
+  }
+
+  button.disabled = true;
+  toggleAccountFavorite(product)
+    .catch((error) => {
+      console.error("ذخیره علاقه‌مندی در API ناموفق بود:", error);
+      window.showAppNotice?.(
+        error.message || "ذخیره علاقه‌مندی در حساب کاربری ناموفق بود.",
+      );
+    })
+    .finally(() => {
+      button.disabled = false;
+    });
 });
 
+window.addEventListener("authstatechange", syncAccountFavorites);
+if (localStorage.getItem("token")) syncAccountFavorites();
+
 window.addEventListener("storage", (event) => {
-  if (event.key !== FAVORITES_STORAGE_KEY) return;
-  document.querySelectorAll(".favorite-toggle-btn").forEach((button) => {
-    const active = isFavorite(button.dataset.productId);
-    button.setAttribute("aria-pressed", String(active));
-    button.setAttribute(
-      "aria-label",
-      active ? "حذف از علاقه‌مندی‌ها" : "افزودن به علاقه‌مندی‌ها",
-    );
-    const icon = button.querySelector("svg");
-    icon?.classList.toggle("fill-purple1", active);
-    icon?.classList.toggle("fill-none", !active);
-  });
-  window.dispatchEvent(new CustomEvent("favoriteschange"));
+  if (event.key === "token") {
+    if (event.newValue) syncAccountFavorites();
+    else window.dispatchEvent(new CustomEvent("favoriteschange"));
+    return;
+  }
+  if (event.key === FAVORITES_STORAGE_KEY) {
+    updateFavoriteButtons();
+    window.dispatchEvent(new CustomEvent("favoriteschange"));
+  }
 });

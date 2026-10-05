@@ -648,6 +648,9 @@ function applyFilters(products, filters = readFilterControls()) {
 async function initProductsPage() {
   const productContainer = document.getElementById("product-container");
   const hasProductListPage = !!productContainer;
+  const initialSearch = new URLSearchParams(window.location.search).get("search") || "";
+  const searchInput = document.getElementById("filter-search-input");
+  if (searchInput) searchInput.value = initialSearch;
 
   try {
     const response = await fetchWithAuth("/products");
@@ -700,6 +703,7 @@ async function initProductsPage() {
   const applyButton = document.getElementById("apply-filter-btn");
   const closeButton = document.getElementById("close-filter-modal-btn");
   const filterModal = document.getElementById("filter-modal");
+  const filterSearchInput = document.getElementById("filter-search-input");
 
   resetButton?.addEventListener("click", () => {
     writeFilterControls({});
@@ -708,6 +712,13 @@ async function initProductsPage() {
   });
 
   applyButton?.addEventListener("click", () => {
+    applyFilters(undefined, readFilterControls());
+    filterModal?.classList.add("opacity-0", "pointer-events-none");
+  });
+
+  filterSearchInput?.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
     applyFilters(undefined, readFilterControls());
     filterModal?.classList.add("opacity-0", "pointer-events-none");
   });

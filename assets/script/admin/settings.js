@@ -11,28 +11,109 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
 
-  let currentLoggedInAdmin = null;
+  let currentSettings = {};
+  const PUBLIC_SETTINGS_CACHE_KEY = "public_store_settings";
   let adminUsersList = [];
   let editingAdminId = null;
   let currentEditingAdminId = null;
 
+  function extractSettingsPayload(response) {
+    let payload = response;
+
+    for (let depth = 0; depth < 5; depth += 1) {
+      if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+        return flattenSettingRows(payload);
+      }
+
+      const nestedPayload =
+        payload.settings ?? payload.data ?? payload.result ?? payload.profile;
+      if (!nestedPayload || typeof nestedPayload !== "object") {
+        return flattenSettingRows(payload);
+      }
+
+      payload = nestedPayload;
+    }
+
+    return flattenSettingRows(payload);
+  }
+
+  function flattenSettingRows(payload) {
+    if (Array.isArray(payload)) {
+      return payload.reduce((settings, row) => {
+        if (row && typeof row === "object" && row.key != null) {
+          settings[row.key] = row.value ?? "";
+        }
+        return settings;
+      }, {});
+    }
+
+    if (!payload || typeof payload !== "object") return {};
+
+    const settings = {};
+    Object.values(payload).forEach((group) => {
+      if (!Array.isArray(group)) return;
+      group.forEach((row) => {
+        if (row && typeof row === "object" && row.key != null) {
+          settings[row.key] = row.value ?? "";
+        }
+      });
+    });
+
+    return Object.keys(settings).length > 0 ? settings : payload;
+  }
+
+  function cachePublicSettings(settings) {
+    try {
+      localStorage.setItem(PUBLIC_SETTINGS_CACHE_KEY, JSON.stringify(settings));
+    } catch (error) {
+      console.warn("ذخیره کش اطلاعات فروشگاه انجام نشد:", error);
+    }
+  }
+
+  function getNestedValue(source, ...paths) {
+    for (const path of paths) {
+      if (!path) continue;
+      const keys = path.split(".");
+      let value = source;
+      let found = true;
+
+      for (const key of keys) {
+        if (
+          value === null ||
+          typeof value !== "object" ||
+          !(key in value)
+        ) {
+          found = false;
+          break;
+        }
+        value = value[key];
+      }
+
+      if (found && value !== undefined && value !== null && String(value).trim() !== "") {
+        return value;
+      }
+    }
+
+    return "";
+  }
+
   function normalizeAdminRecord(admin = {}) {
     const id = admin.id ?? admin.admin_id ?? admin.user_id ?? admin._id ?? null;
     const name =
-      admin.name ||
-      admin.full_name ||
-      admin.fullName ||
-      admin.display_name ||
+      getNestedValue(admin, "name", "full_name", "fullName", "display_name") ||
       "بدون نام";
     const mobile =
-      admin.mobile ||
-      admin.phone ||
-      admin.phone_number ||
-      admin.contact_mobile ||
-      "";
+      getNestedValue(
+        admin,
+        "mobile",
+        "phone",
+        "phone_number",
+        "contact_mobile",
+        "contact_phone",
+      ) || "";
     const email =
-      admin.email || admin.username || admin.user_name || admin.login || "";
-    const username = admin.username || admin.user_name || admin.email || "";
+      getNestedValue(admin, "email", "username", "user_name", "login") || "";
+    const username = getNestedValue(admin, "username", "user_name", "email") || "";
     const isActive =
       admin.is_active !== undefined
         ? Boolean(admin.is_active)
@@ -112,41 +193,142 @@ document.addEventListener("DOMContentLoaded", async () => {
   // 2. دریافت و بارگذاری پروفایل ادمین فعلی از API
   async function loadAdminProfileData() {
     try {
-      const res = await fetchWithAuth("/admin-users?profile=true");
-      const profileData =
-        res?.data || res?.user || res?.profile || res?.admin || res || {};
+      const settingsData = await fetchWithAuth("/settings");
+      if (settingsData?.status === false || settingsData?.authRequired) {
+        throw new Error(settingsData.message || "دریافت تنظیمات فروشگاه انجام نشد.");
+      }
+
+      const settingsPayload = extractSettingsPayload(settingsData);
+      const mergedProfile = {
+        ...settingsPayload,
+        ...(settingsPayload?.social || settingsPayload?.socials || {}),
+        ...(settingsPayload?.contact || {}),
+      };
+      currentSettings = mergedProfile;
+      cachePublicSettings(mergedProfile);
+
+      const profileData = {
+        siteName:
+          getNestedValue(
+            mergedProfile,
+            "site_name",
+            "siteName",
+            "store_name",
+            "storeName",
+            "shop_name",
+            "shopName",
+            "name",
+          ) || "",
+        phone:
+          getNestedValue(
+            mergedProfile,
+            "contact_phone",
+            "contactPhone",
+            "telephone",
+            "phone",
+          ) || "",
+        mobile:
+          getNestedValue(
+            mergedProfile,
+            "contact_mobile",
+            "contactMobile",
+            "mobile",
+            "phone_number",
+            "phoneNumber",
+          ) || "",
+        instagram:
+          getNestedValue(
+            mergedProfile,
+            "instagram",
+            "social.instagram",
+            "socials.instagram",
+            "contact.instagram",
+            "shop_instagram",
+            "shopInstagram",
+            "store_instagram",
+            "storeInstagram",
+          ) || "",
+        telegram:
+          getNestedValue(
+            mergedProfile,
+            "telegram",
+            "social.telegram",
+            "socials.telegram",
+            "contact.telegram",
+            "shop_telegram",
+            "shopTelegram",
+            "store_telegram",
+            "storeTelegram",
+          ) || "",
+        rubika:
+          getNestedValue(
+            mergedProfile,
+            "rubika",
+            "roobika",
+            "social.rubika",
+            "socials.rubika",
+            "contact.rubika",
+            "shop_rubika",
+            "shopRubika",
+            "store_rubika",
+            "storeRubika",
+          ) || "",
+        whatsapp:
+          getNestedValue(
+            mergedProfile,
+            "whatsapp",
+            "social.whatsapp",
+            "socials.whatsapp",
+            "contact.whatsapp",
+            "shop_whatsapp",
+            "shopWhatsapp",
+            "store_whatsapp",
+            "storeWhatsapp",
+          ) || "",
+        address:
+          getNestedValue(
+            mergedProfile,
+            "store_address",
+            "storeAddress",
+            "shop_address",
+            "shopAddress",
+            "address",
+            "contact_address",
+            "contactAddress",
+            "location",
+          ) || "",
+      };
 
       if (profileData && typeof profileData === "object") {
-        currentLoggedInAdmin = profileData;
-
         const fullNameEl = document.getElementById("admin-fullName");
         const phoneEl = document.getElementById("admin-phone");
+        const mobileEl = document.getElementById("admin-mobile");
         const instagramEl = document.getElementById("admin-instagram");
         const telegramEl = document.getElementById("admin-telegram");
         const rubikaEl = document.getElementById("admin-rubika");
         const whatsappEl = document.getElementById("admin-whatsapp");
         const addressEl = document.getElementById("admin-address");
+        const shippingCostEl = document.getElementById("admin-shipping-cost");
 
-        if (fullNameEl)
-          fullNameEl.value =
-            profileData.name ||
-            profileData.full_name ||
-            profileData.fullName ||
-            "";
-        if (phoneEl)
-          phoneEl.value =
-            profileData.mobile ||
-            profileData.phone ||
-            profileData.phone_number ||
-            "";
+        if (fullNameEl) fullNameEl.value = profileData.siteName || "";
+        if (phoneEl) phoneEl.value = profileData.phone || "";
+        if (mobileEl) mobileEl.value = profileData.mobile || "";
         if (instagramEl) instagramEl.value = profileData.instagram || "";
         if (telegramEl) telegramEl.value = profileData.telegram || "";
         if (rubikaEl) rubikaEl.value = profileData.rubika || "";
         if (whatsappEl) whatsappEl.value = profileData.whatsapp || "";
         if (addressEl) addressEl.value = profileData.address || "";
+        if (shippingCostEl) {
+          shippingCostEl.value = getNestedValue(
+            mergedProfile,
+            "shipping_cost",
+            "shippingCost",
+          );
+        }
       }
     } catch (err) {
       console.error("خطا در دریافت اطلاعات پروفایل:", err.message);
+      showPasswordMessage(err.message || "خطا در دریافت تنظیمات فروشگاه", "error");
     }
   }
 
@@ -156,22 +338,39 @@ document.addEventListener("DOMContentLoaded", async () => {
   adminProfileForm?.addEventListener("submit", async (e) => {
     e.preventDefault();
 
-    const payload = {
-      name: document.getElementById("admin-fullName")?.value.trim(),
-      mobile: document.getElementById("admin-phone")?.value.trim(),
-      email: currentLoggedInAdmin?.email || "",
-      instagram: document.getElementById("admin-instagram")?.value.trim(),
-      telegram: document.getElementById("admin-telegram")?.value.trim(),
-      rubika: document.getElementById("admin-rubika")?.value.trim(),
-      whatsapp: document.getElementById("admin-whatsapp")?.value.trim(),
-      address: document.getElementById("admin-address")?.value.trim(),
+    const siteName = document.getElementById("admin-fullName")?.value.trim();
+    const phone = document.getElementById("admin-phone")?.value.trim();
+    const mobile = document.getElementById("admin-mobile")?.value.trim();
+    const instagram = document.getElementById("admin-instagram")?.value.trim();
+    const telegram = document.getElementById("admin-telegram")?.value.trim();
+    const rubika = document.getElementById("admin-rubika")?.value.trim();
+    const whatsapp = document.getElementById("admin-whatsapp")?.value.trim();
+    const address = document.getElementById("admin-address")?.value.trim();
+    const shippingCost = document.getElementById("admin-shipping-cost")?.value.trim();
+
+    const settingsPayload = {
+      ...currentSettings,
+      site_name: siteName,
+      contact_phone: phone,
+      contact_mobile: mobile,
+      store_address: address,
+      instagram,
+      telegram,
+      rubika,
+      whatsapp,
+      shipping_cost: shippingCost,
     };
 
     try {
-      const res = await fetchWithAuth("/admin-users", {
-        method: "POST",
-        body: JSON.stringify(payload),
+      const result = await fetchWithAuth("/settings", {
+        method: "PUT",
+        body: JSON.stringify(settingsPayload),
       });
+      if (result?.status === false || result?.authRequired) {
+        throw new Error(result.message || "ذخیره تنظیمات فروشگاه انجام نشد.");
+      }
+
+      cachePublicSettings(settingsPayload);
 
       showPasswordMessage("پروفایل با موفقیت بروزرسانی شد! ✅", "success");
       await loadAdminProfileData();
