@@ -152,6 +152,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     } = product;
 
     const title = product.title || product.name || "عنوان نامشخص";
+    const formattedPrice = Number(
+      String(price).replace(/[,\u066c]/g, ""),
+    ).toLocaleString("en-US");
     const image = getProductImage(product);
     registerFavoriteProduct(product);
     const favorite = isFavorite(id);
@@ -271,7 +274,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     <div class="flex items-center pt-2">
                       <span class="w-4 h-[2px] bg-red-500 flex-shrink-0"></span>
                       <span class="text-xl md:text-2xl font-extrabold text-purple1/70 whitespace-nowrap bg-white pr-2">
-                        ${price} <span class="text-sm lg:text-xl xl:text-3xl font-bold">تومان</span>
+                        ${formattedPrice} <span class="text-sm lg:text-xl xl:text-3xl font-bold">تومان</span>
                       </span>
                     </div>
 

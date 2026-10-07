@@ -246,35 +246,72 @@
         <section id="orders-section" class="admin-section hidden">
           <div class="w-full space-y-6">
             <!-- فیلترها -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div class="relative">
-                <input id="order-search-input" type="text" placeholder="جست و جو بر اساس شماره سفارش، نام یا تلفن..."
-                  class="w-full pl-10 pr-4 py-5 border border-black-main rounded-2xl text-xs sm:text-sm text-black-primary placeholder:text-purple1/50 outline-none focus:border-purple1 transition-colors" />
-                <i
-                  class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-black-main text-base"></i>
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              <div class="flex min-w-0 flex-col gap-1">
+                <label for="order-search-input" class="text-xs font-bold text-purple1">جستجوی سفارش</label>
+                <label
+                  class="relative block h-14 w-full cursor-text rounded-2xl border border-black-main bg-white transition-colors focus-within:border-purple1 focus-within:ring-2 focus-within:ring-purple1/10">
+                  <input id="order-search-input" type="text"
+                    placeholder="شماره سفارش، نام یا تلفن..."
+                    class="h-full w-full rounded-2xl bg-transparent py-3 pl-10 pr-4 text-xs sm:text-sm text-black-primary placeholder:text-purple1/50 outline-none" />
+                  <i
+                    class="fa-solid fa-magnifying-glass pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-black-main text-base"></i>
+                </label>
+                <span aria-hidden="true" class="h-4"></span>
               </div>
 
-              <div
-                class="relative border border-black-main rounded-2xl px-4 py-2 bg-white flex flex-col justify-center">
-                <span class="text-[10px] text-purple1 font-bold">وضعیت سفارش</span>
-                <select id="order-status-filter"
-                  class="text-xs sm:text-sm text-black-primary font-bold bg-transparent outline-none cursor-pointer mt-0.5">
-                  <option value="all">همه</option>
-                  <option value="processing">در حال پردازش</option>
-                  <option value="shipped">ارسال شده</option>
-                  <option value="delivered">تحویل داده شده</option>
-                  <option value="canceled">لغو شده</option>
-                  <option value="pending">در انتظار پرداخت</option>
-                </select>
-              </div>
-
-              <div
-                class="relative border border-black-main rounded-2xl px-4 py-2 bg-white flex items-center justify-between">
-                <div class="flex flex-col">
-                  <span class="text-[10px] text-purple1 font-bold">تاریخ ثبت</span>
-                  <span class="text-xs sm:text-sm text-gray-main font-bold mt-0.5">مثال</span>
+              <div class="flex min-w-0 flex-col gap-1">
+                <label for="order-status-filter" class="text-xs font-bold text-purple1">وضعیت سفارش</label>
+                <div id="order-status-filter-wrap" class="relative">
+                  <select id="order-status-filter"
+                    class="h-14 w-full appearance-none rounded-2xl border border-black-main bg-white py-3 pl-10 pr-4 text-xs sm:text-sm text-black-primary font-bold outline-none transition-colors focus:border-purple1 focus:ring-2 focus:ring-purple1/10 cursor-pointer">
+                    <option value="all">همه</option>
+                    <option value="processing">در حال پردازش</option>
+                    <option value="shipped">ارسال شده</option>
+                    <option value="delivered">تحویل داده شده</option>
+                    <option value="canceled">لغو شده</option>
+                    <option value="pending">در انتظار پرداخت</option>
+                  </select>
+                  <i id="order-status-filter-icon"
+                    class="fa-solid fa-chevron-down pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-xs text-purple1 transition-transform duration-200"
+                    aria-hidden="true"></i>
                 </div>
-                <i class="fa-regular fa-calendar-days text-purple1 text-xl"></i>
+                <span aria-hidden="true" class="h-4"></span>
+              </div>
+
+              <div class="flex min-w-0 flex-col gap-1">
+                <span class="text-xs font-bold text-purple1">تاریخ ثبت سفارش</span>
+                <div
+                  class="h-14 min-w-0 rounded-2xl border border-black-main bg-white px-3 flex items-center gap-2 transition-colors focus-within:border-purple1 focus-within:ring-2 focus-within:ring-purple1/10">
+                  <i class="fa-regular fa-calendar-days shrink-0 text-purple1" aria-hidden="true"></i>
+                  <div class="min-w-0 flex-1">
+                    <div class="grid grid-cols-3 items-center gap-2" dir="rtl">
+                      <label class="sr-only" for="order-date-day">روز</label>
+                      <select id="order-date-day" aria-label="روز"
+                        class="h-10 min-w-0 w-full rounded-lg border border-gray-200 bg-white px-2 text-xs text-black-primary outline-none focus:border-purple1">
+                        <option value="">روز</option>
+                      </select>
+                      <label class="sr-only" for="order-date-month">ماه</label>
+                      <select id="order-date-month" aria-label="ماه"
+                        class="h-10 min-w-0 w-full rounded-lg border border-gray-200 bg-white px-2 text-xs text-black-primary outline-none focus:border-purple1">
+                        <option value="">ماه</option>
+                      </select>
+                      <label class="sr-only" for="order-date-year">سه رقم پایانی سال شمسی</label>
+                      <div class="relative h-10 min-w-0 w-full">
+                        <span aria-hidden="true"
+                          class="absolute left-2 top-1/2 -translate-y-1/2 text-xs font-bold text-black-primary pointer-events-none">۱</span>
+                        <input id="order-date-year" type="text" inputmode="numeric" maxlength="3"
+                          aria-label="سه رقم پایانی سال شمسی" placeholder="۴۰۵" dir="ltr"
+                          class="h-10 w-full min-w-0 rounded-lg border border-gray-200 bg-white pl-6 pr-2 text-center text-xs text-black-primary outline-none placeholder:text-gray-400 focus:border-purple1" />
+                      </div>
+                    </div>
+                  </div>
+                  <button id="order-date-filter-clear" type="button" aria-label="پاک کردن فیلتر تاریخ"
+                    class="hidden shrink-0 w-8 h-8 rounded-full text-gray-400 hover:text-rose-500 hover:bg-rose-50 transition-colors">
+                    <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                  </button>
+                </div>
+                <span id="order-date-filter-hint" class="h-4 text-[10px] text-gray-main">روز، ماه و سال را انتخاب کنید</span>
               </div>
             </div>
 
@@ -444,11 +481,10 @@
                 <i
                   class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-main text-sm"></i>
               </div>
-              <div
-                class="relative w-full sm:w-48 border border-black-primary rounded-2xl px-4 py-2.5 bg-white flex items-center justify-between cursor-pointer">
-                <span class="text-xs text-purple1 font-bold">انتخاب دسته‌بندی</span>
-                <i class="fa-solid fa-chevron-down text-xs text-black-primary"></i>
-              </div>
+              <select id="products-category-filter"
+                class="w-full sm:w-48 border border-black-primary rounded-2xl px-4 py-2.5 bg-white text-xs text-black-primary font-bold outline-none focus:border-purple1 cursor-pointer">
+                <option value="all">همه دسته‌بندی‌ها</option>
+              </select>
             </div>
 
             <button id="btn-show-add-form" type="button"
@@ -522,10 +558,8 @@
                     </div>
                     <div class="space-y-2">
                       <label class="block text-sm font-bold text-black-primary text-right">برند (اختیاری)</label>
-                      <select id="input-brand"
-                        class="w-full border border-black-primary rounded-2xl px-4 py-3 text-xs sm:text-sm text-purple1 outline-none focus:border-purple1 transition-colors text-right bg-white">
-                        <option value="">بدون برند</option>
-                      </select>
+                      <input id="input-brand" type="text" placeholder="نام برند را وارد کنید"
+                        class="w-full border border-black-primary rounded-2xl px-4 py-3 text-xs sm:text-sm text-black-primary placeholder:text-purple1/70 outline-none focus:border-purple1 transition-colors text-right" />
                     </div>
                   </div>
 
@@ -575,30 +609,16 @@
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div class="space-y-2">
-                    <label class="block text-sm font-bold text-black-primary text-right">رنگ بندی</label>
-                    <div class="relative">
-                      <select id="input-colors"
-                        class="w-full border border-black-primary rounded-2xl px-4 py-2.5 text-xs sm:text-sm text-purple1 appearance-none outline-none focus:border-purple1 cursor-pointer bg-white text-right">
-                        <option value="" disabled selected>
-                          انتخاب کنید
-                        </option>
-                      </select>
-                      <i
-                        class="fa-solid fa-chevron-down absolute left-4 top-1/2 -translate-y-1/2 text-black-primary pointer-events-none text-xs"></i>
-                    </div>
+                    <label class="block text-sm font-bold text-black-primary text-right">رنگ بندی <span
+                        class="text-purple1">*</span></label>
+                    <input id="input-colors" type="text" required placeholder="مثال: قرمز، آبی"
+                      class="w-full border border-black-primary rounded-2xl px-4 py-2.5 text-xs sm:text-sm text-black-primary placeholder:text-purple1/70 outline-none focus:border-purple1 transition-colors text-right" />
                   </div>
                   <div class="space-y-2">
-                    <label class="block text-sm font-bold text-black-primary text-right">سایزبندی</label>
-                    <div class="relative">
-                      <select id="input-sizes"
-                        class="w-full border border-black-primary rounded-2xl px-4 py-2.5 text-xs sm:text-sm text-purple1 appearance-none outline-none focus:border-purple1 cursor-pointer bg-white text-right">
-                        <option value="" disabled selected>
-                          انتخاب کنید
-                        </option>
-                      </select>
-                      <i
-                        class="fa-solid fa-chevron-down absolute left-4 top-1/2 -translate-y-1/2 text-black-primary pointer-events-none text-xs"></i>
-                    </div>
+                    <label class="block text-sm font-bold text-black-primary text-right">سایزبندی <span
+                        class="text-purple1">*</span></label>
+                    <input id="input-sizes" type="text" required placeholder="مثال: کوچک، متوسط، بزرگ"
+                      class="w-full border border-black-primary rounded-2xl px-4 py-2.5 text-xs sm:text-sm text-black-primary placeholder:text-purple1/70 outline-none focus:border-purple1 transition-colors text-right" />
                   </div>
                 </div>
 
@@ -807,7 +827,7 @@
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                 </svg>
-                <span>25.200.000</span>
+                <span id="income-details-total">0</span>
                 <span class="text-lg font-bold text-emerald-500">تومان</span>
               </div>
               <h2 class="text-gray-900 font-extrabold text-2xl sm:text-3xl">کل درآمد</h2>
@@ -866,7 +886,7 @@
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                 </svg>
-                <span>25.200.000</span>
+                <span id="expense-details-total">0</span>
                 <span class="text-lg font-bold text-rose-500">تومان</span>
               </div>
               <h2 class="text-gray-900 font-extrabold text-2xl sm:text-3xl">کل هزینه ها</h2>
@@ -1780,7 +1800,7 @@
   </div>
   <script type="module" src="../assets/script/admin/dashboard.js"></script>
   <script type="module" src="../assets/script/admin/orders.js"></script>
-  <script type="module" src="../assets/script/admin/products.js?v=product-delete-9"></script>
+  <script type="module" src="../assets/script/admin/products.js?v=product-text-variants-1"></script>
   <script type="module" src="../assets/script/admin/reviews.js"></script>
   <script type="module" src="../assets/script/admin/accounting.js?v=accounting-7"></script>
   <script type="module" src="../assets/script/admin/settings.js"></script>

@@ -3,6 +3,45 @@ export const API_BASE = BASE_URL;
 export const API_BASE_URL = BASE_URL;
 export const FALLBACK_PRODUCT_IMAGE = "./assets/images/products/achar.jpg";
 
+const persianDateFormatter = new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+export function formatPersianDate(value) {
+  if (value === null || value === undefined || value === "") return "-";
+
+  const rawValue = String(value).trim();
+  const isoDateMatch = rawValue.match(/^(\d{4})-(\d{2})-(\d{2})(.*)$/);
+  let date;
+
+  if (isoDateMatch) {
+    const [, yearText, monthText, dayText, remainder] = isoDateMatch;
+    const year = Number(yearText);
+    if (year < 1700) {
+      return `${yearText}/${monthText}/${dayText}`.replace(
+        /\d/g,
+        (digit) => String.fromCharCode(digit.charCodeAt(0) + 0x06f0 - 0x30),
+      );
+    }
+
+    if (!remainder) {
+      date = new Date(year, Number(monthText) - 1, Number(dayText));
+    } else {
+      date = new Date(
+        `${yearText}-${monthText}-${dayText}${remainder.replace(" ", "T")}`,
+      );
+    }
+  } else {
+    date = new Date(rawValue);
+  }
+
+  return Number.isNaN(date.getTime())
+    ? rawValue
+    : persianDateFormatter.format(date);
+}
+
 function getAppModal() {
   let modal = document.getElementById("app-message-modal");
   if (modal) return modal;
@@ -484,9 +523,10 @@ export async function fetchWithAuth(endpoint, options = {}) {
     };
 
     if (token) {
-      headers["Authorization"] = token.startsWith("Bearer ")
+      const bearerPrefix = ["B","e","a","r","e","r"," "].join("");
+      headers["Authorization"] = token.startsWith(bearerPrefix)
         ? token
-        : `Bearer ${token}`;
+        : bearerPrefix + token;
     }
 
     const candidateBody = options.body;

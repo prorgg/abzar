@@ -12,6 +12,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let editingProductVariants = [];
   let currentProductPage = 1;
   const productsPerPage = 10;
+  let categoriesData = [];
 
   const productsSection = document.getElementById("products-section");
   const addProductSection = document.getElementById("add-product-section");
@@ -21,6 +22,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const productsTableBody = document.getElementById("products-table-body");
   const productsCountText = document.getElementById("products-count");
   const productsPagination = document.getElementById("products-pagination");
+  const searchInput = document.getElementById("search-input");
+  const productsCategoryFilter = document.getElementById(
+    "products-category-filter",
+  );
   const formTitle = document.getElementById("form-title");
   const btnSubmitProduct = document.getElementById("btn-submit-product");
 
@@ -44,44 +49,152 @@ document.addEventListener("DOMContentLoaded", () => {
 
   let uploadedFile = null;
 
+  function parseProductPrice(value, fieldLabel, { optional = false } = {}) {
+    const normalized = String(value ?? "")
+      .trim()
+      .replace(/[۰-۹]/g, (digit) =>
+        String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)),
+      )
+      .replace(/[٠-٩]/g, (digit) =>
+        String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)),
+      )
+      .replace(/[٬،,.\s]/g, "");
+
+    if (!normalized && optional) return 0;
+    if (!/^\d+$/.test(normalized)) {
+      throw new Error(`مبلغ ${fieldLabel} را به‌درستی وارد کنید.`);
+    }
+
+    const amount = Number(normalized);
+    if (!Number.isSafeInteger(amount) || amount < 0) {
+      throw new Error(`مبلغ ${fieldLabel} معتبر نیست.`);
+    }
+    return amount;
+  }
+
   async function loadProductReferences() {
-    const [categoryResponse, brandResponse, sizeResponse, colorResponse] =
-      await Promise.all([
-        fetchWithAuth("/categories"),
-        fetchWithAuth("/brands"),
-        fetchWithAuth("/sizes"),
-        fetchWithAuth("/colors"),
-      ]);
-    const categories = categoryResponse?.data || [];
-    const brands = brandResponse?.data || [];
-    const sizes = sizeResponse?.data || [];
-    const colors = colorResponse?.data || [];
+    const categoryResponse = await fetchWithAuth("/categories");
+    categoriesData = categoryResponse?.data || [];
 
     if (inputCategory) {
       inputCategory.innerHTML =
         '<option value="" disabled selected>انتخاب کنید</option>';
-      categories.forEach((category) => {
+      categoriesData.forEach((category) => {
         inputCategory.add(new Option(category.name, category.id));
       });
     }
-    if (inputBrand) {
-      inputBrand.innerHTML = '<option value="">بدون برند</option>';
-      brands.forEach((brand) =>
-        inputBrand.add(new Option(brand.name, brand.id)),
+    if (productsCategoryFilter) {
+      productsCategoryFilter.innerHTML =
+        '<option value="all">همه دسته‌بندی‌ها</option>';
+      categoriesData.forEach((category) => {
+        productsCategoryFilter.add(
+          new Option(category.name || category.title || "", category.id),
+        );
+      });
+    }
+  }
+
+  function getVariantAttributeValue(variant, attribute) {
+    const namedValue =
+      variant[`${attribute}_name`] ||
+      (attribute === "size" ? variant.dimension_name || variant.dimension : "");
+    if (namedValue) return String(namedValue);
+
+    const value = variant[attribute];
+    if (typeof value === "string" || typeof value === "number") {
+      return String(value);
+    }
+    if (value && typeof value === "object") {
+      const name = value.name || value.title;
+      if (name) return String(name);
+      if (value.id != null) return String(value.id);
+    }
+
+    const id = variant[`${attribute}_id`];
+    return id == null ? "" : String(id);
+  }
+
+  function getTextValues(input) {
+    return (input?.value || "")
+      .split(/[,،]/)
+      .map((value) => value.trim())
+      .filter(Boolean);
+  }
+
+  function normalizeSearchValue(value) {
+    return String(value ?? "")
+      .trim()
+      .toLocaleLowerCase()
+      .replace(/[يى]/g, "ی")
+      .replace(/ك/g, "ک");
+  }
+
+  function getProductCategoryIds(product) {
+    const categories = Array.isArray(product.categories)
+      ? product.categories
+      : product.category
+        ? [product.category]
+        : [];
+    const categoryIds = categories
+      .map((category) => {
+        if (typeof category === "object" && category !== null) {
+          return category.id ?? category.category_id;
+        }
+        const matchingCategory = categoriesData.find(
+          (item) =>
+            String(item.id) === String(category) ||
+            normalizeSearchValue(item.name || item.title) ===
+              normalizeSearchValue(category),
+        );
+        return matchingCategory?.id ?? category;
+      })
+      .filter((id) => id != null)
+      .map(String);
+    const singleCategoryId = product.category_id ?? product.categoryId;
+    if (singleCategoryId != null) categoryIds.push(String(singleCategoryId));
+    if (Array.isArray(product.category_ids)) {
+      categoryIds.push(...product.category_ids.map(String));
+    }
+    return categoryIds;
+  }
+
+  function getFilteredProducts() {
+    const searchTerm = normalizeSearchValue(searchInput?.value);
+    const categoryId = productsCategoryFilter?.value || "all";
+
+    return productsData.filter((product) => {
+      if (
+        categoryId !== "all" &&
+        !getProductCategoryIds(product).includes(String(categoryId))
+      ) {
+        return false;
+      }
+      if (!searchTerm) return true;
+
+      const searchableValues = [
+        product.name,
+        product.title,
+        product.code,
+        product.sku,
+        product.brand_name,
+        typeof product.brand === "object"
+          ? product.brand?.name
+          : product.brand,
+        ...(Array.isArray(product.categories)
+          ? product.categories.map((category) =>
+              typeof category === "string"
+                ? category
+                : category?.name || category?.title,
+            )
+          : []),
+        product.category?.name,
+        typeof product.category === "string" ? product.category : "",
+        product.collection,
+      ];
+      return searchableValues.some((value) =>
+        normalizeSearchValue(value).includes(searchTerm),
       );
-    }
-    if (inputSizes) {
-      inputSizes.innerHTML =
-        '<option value="" disabled selected>انتخاب کنید</option>';
-      sizes.forEach((size) => inputSizes.add(new Option(size.name, size.id)));
-    }
-    if (inputColors) {
-      inputColors.innerHTML =
-        '<option value="" disabled selected>انتخاب کنید</option>';
-      colors.forEach((color) =>
-        inputColors.add(new Option(color.name, color.id)),
-      );
-    }
+    });
   }
 
   // 2. دریافت لیست محصولات از API (GET)
@@ -122,18 +235,23 @@ document.addEventListener("DOMContentLoaded", () => {
   function renderProducts() {
     if (!productsTableBody) return;
 
-    if (!productsData || productsData.length === 0) {
+    const filteredProducts = getFilteredProducts();
+    if (filteredProducts.length === 0) {
       productsTableBody.innerHTML =
-        '<tr><td colspan="6" class="py-6 text-gray-400 text-center">هیچ محصولی یافت نشد.</td></tr>';
+        `<tr><td colspan="6" class="py-6 text-gray-400 text-center">${
+          productsData.length === 0
+            ? "هیچ محصولی یافت نشد."
+            : "محصولی با این فیلترها یافت نشد."
+        }</td></tr>`;
       if (productsCountText) productsCountText.innerText = "نمایش 0 از 0 محصول";
       if (productsPagination) productsPagination.innerHTML = "";
       return;
     }
 
-    const totalPages = Math.ceil(productsData.length / productsPerPage);
+    const totalPages = Math.ceil(filteredProducts.length / productsPerPage);
     currentProductPage = Math.min(Math.max(currentProductPage, 1), totalPages);
     const startIndex = (currentProductPage - 1) * productsPerPage;
-    const visibleProducts = productsData.slice(
+    const visibleProducts = filteredProducts.slice(
       startIndex,
       startIndex + productsPerPage,
     );
@@ -147,11 +265,19 @@ document.addEventListener("DOMContentLoaded", () => {
           product.id_product ??
           product.product?.id;
         const name = product.name || product.title || "بدون نام";
-        const categoryName =
-          product.category?.name ||
-          product.category ||
-          product.collection ||
-          "_";
+        const categoryName = Array.isArray(product.categories)
+          ? product.categories
+              .map((category) =>
+                typeof category === "string"
+                  ? category
+                  : category?.name || category?.title,
+              )
+              .filter(Boolean)
+              .join(", ") || "_"
+          : product.category?.name ||
+            product.category ||
+            product.collection ||
+            "_";
         const rawPrice = Number(product.price || 0);
         const formattedPrice = rawPrice.toLocaleString("en-US") + " تومان";
 
@@ -241,7 +367,7 @@ document.addEventListener("DOMContentLoaded", () => {
       .join("");
 
     if (productsCountText) {
-      productsCountText.innerText = `نمایش ${startIndex + 1}-${Math.min(startIndex + productsPerPage, productsData.length)} از ${productsData.length} محصول`;
+      productsCountText.innerText = `نمایش ${startIndex + 1}-${Math.min(startIndex + productsPerPage, filteredProducts.length)} از ${filteredProducts.length} محصول`;
     }
 
     renderProductsPagination(totalPages);
@@ -256,6 +382,15 @@ document.addEventListener("DOMContentLoaded", () => {
         });
       });
   }
+
+  searchInput?.addEventListener("input", () => {
+    currentProductPage = 1;
+    renderProducts();
+  });
+  productsCategoryFilter?.addEventListener("change", () => {
+    currentProductPage = 1;
+    renderProducts();
+  });
 
   function renderProductsPagination(totalPages) {
     if (!productsPagination) return;
@@ -317,14 +452,37 @@ document.addEventListener("DOMContentLoaded", () => {
         "";
     }
     if (inputCode) inputCode.value = product.code || product.sku || "";
-    if (inputBrand) inputBrand.value = product.brand_id || "";
+    if (inputBrand) {
+      inputBrand.value =
+        product.brand_name ||
+        product.brand?.name ||
+        (typeof product.brand === "string" ? product.brand : "") ||
+        product.brand_id ||
+        "";
+    }
     if (inputDescription) inputDescription.value = product.description || "";
     if (inputPrice) inputPrice.value = product.price || "";
     if (inputDiscountPrice)
       inputDiscountPrice.value =
         product.discount_price || product.discountPrice || "";
-    if (inputSizes) inputSizes.value = product.variants?.[0]?.size_id || "";
-    if (inputColors) inputColors.value = product.variants?.[0]?.color_id || "";
+    if (inputSizes) {
+      inputSizes.value = [
+        ...new Set(
+          editingProductVariants
+            .map((variant) => getVariantAttributeValue(variant, "size"))
+            .filter(Boolean),
+        ),
+      ].join(", ");
+    }
+    if (inputColors) {
+      inputColors.value = [
+        ...new Set(
+          editingProductVariants
+            .map((variant) => getVariantAttributeValue(variant, "color"))
+            .filter(Boolean),
+        ),
+      ].join(", ");
+    }
 
     syncStockInputToSelectedVariant();
 
@@ -381,20 +539,20 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function syncStockInputToSelectedVariant() {
+    const selectedSize = getTextValues(inputSizes)[0] || "";
+    const selectedColor = getTextValues(inputColors)[0] || "";
     const selectedVariant = editingProductVariants.find(
       (variant) =>
-        String(variant.size_id ?? variant.size?.id ?? "") ===
-          String(inputSizes?.value ?? "") &&
-        String(variant.color_id ?? variant.color?.id ?? "") ===
-          String(inputColors?.value ?? ""),
+        getVariantAttributeValue(variant, "size") === selectedSize &&
+        getVariantAttributeValue(variant, "color") === selectedColor,
     );
     const stock = Math.max(0, Number(selectedVariant?.stock) || 0);
     if (inputStock) inputStock.value = String(stock);
     updateStockStatusText(stock);
   }
 
-  inputSizes?.addEventListener("change", syncStockInputToSelectedVariant);
-  inputColors?.addEventListener("change", syncStockInputToSelectedVariant);
+  inputSizes?.addEventListener("input", syncStockInputToSelectedVariant);
+  inputColors?.addEventListener("input", syncStockInputToSelectedVariant);
 
   inputStock?.addEventListener("input", () => {
     updateStockStatusText(inputStock.value);
@@ -409,107 +567,64 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const endpoint = "/products";
       const method = "POST";
+      const price = parseProductPrice(inputPrice?.value, "قیمت");
+      const discountPrice = parseProductPrice(
+        inputDiscountPrice?.value,
+        "با تخفیف",
+        { optional: true },
+      );
+      if (discountPrice > price) {
+        throw new Error("قیمت با تخفیف نمی‌تواند از قیمت اصلی بیشتر باشد.");
+      }
 
       const categoryIds = inputCategory?.value
         ? [Number(inputCategory.value)].filter(
             (id) => Number.isFinite(id) && id > 0,
           )
         : [];
-      const brandId = inputBrand?.value ? Number(inputBrand.value) : null;
-
-      const sizeValues = inputSizes?.value
-        ? inputSizes.value
-            .split(",")
-            .map((s) => s.trim())
-            .filter(Boolean)
-        : [];
-      const colorValues = inputColors?.value
-        ? inputColors.value
-            .split(",")
-            .map((c) => c.trim())
-            .filter(Boolean)
-        : [];
-
-      const sizeIds = sizeValues
-        .map((value) => Number(value))
-        .filter((id) => Number.isFinite(id) && id > 0);
-      const colorIds = colorValues
-        .map((value) => Number(value))
-        .filter((id) => Number.isFinite(id) && id > 0);
+      const sizeValues = getTextValues(inputSizes);
+      const colorValues = getTextValues(inputColors);
 
       const existingProduct = productsData.find(
         (product) => String(product.id) === String(editingProductId),
       );
-      const existingVariants = existingProduct?.variants;
-      const selectedSizeId = sizeIds[0] ?? null;
-      const selectedColorId = colorIds[0] ?? null;
-      const hasExistingVariants =
-        Array.isArray(existingVariants) && existingVariants.length > 0;
-      const variants = hasExistingVariants
-        ? existingVariants.map((variant, index) => {
-            const isSelectedVariant =
-              String(variant.size_id ?? variant.size?.id ?? "") ===
-                String(selectedSizeId ?? "") &&
-              String(variant.color_id ?? variant.color?.id ?? "") ===
-                String(selectedColorId ?? "");
-            return {
-              size_id: variant.size_id ?? variant.size?.id,
-              color_id: variant.color_id ?? variant.color?.id,
-              stock: isSelectedVariant
-                ? Math.max(0, Math.floor(Number(inputStock?.value) || 0))
-                : Math.max(0, Number(variant.stock) || 0),
-              price_adjust: Number(variant.price_adjust) || 0,
-              sku: variant.sku || `SKU-${editingProductId}-${index}`,
-            };
-          })
+      const existingVariants = Array.isArray(existingProduct?.variants)
+        ? existingProduct.variants
         : [];
+      const maxVariantCount = Math.max(sizeValues.length, colorValues.length);
+      const variants = [];
+      for (let i = 0; i < maxVariantCount; i += 1) {
+        const sizeName = sizeValues[i] ?? sizeValues[0] ?? "";
+        const colorName = colorValues[i] ?? colorValues[0] ?? "";
+        if (!sizeName || !colorName) continue;
 
-      if (
-        hasExistingVariants &&
-        selectedSizeId &&
-        selectedColorId &&
-        !existingVariants.some(
+        const previousVariant = existingVariants.find(
           (variant) =>
-            String(variant.size_id ?? variant.size?.id ?? "") ===
-              String(selectedSizeId) &&
-            String(variant.color_id ?? variant.color?.id ?? "") ===
-              String(selectedColorId),
-        )
-      ) {
+            getVariantAttributeValue(variant, "size") === sizeName &&
+            getVariantAttributeValue(variant, "color") === colorName,
+        );
         variants.push({
-          size_id: selectedSizeId,
-          color_id: selectedColorId,
-          stock: Math.max(0, Math.floor(Number(inputStock?.value) || 0)),
-          price_adjust: 0,
-          sku: inputCode?.value?.trim() || `SKU-${Date.now()}`,
+          size_id: null,
+          color_id: null,
+          size_name: sizeName,
+          color_name: colorName,
+          stock:
+            i === 0 || !previousVariant
+              ? Math.max(0, Math.floor(Number(inputStock?.value) || 0))
+              : Math.max(0, Number(previousVariant.stock) || 0),
+          price_adjust: Number(previousVariant?.price_adjust) || 0,
+          sku:
+            previousVariant?.sku ||
+            inputCode?.value?.trim() ||
+            `SKU-${editingProductId || Date.now()}-${i}`,
         });
-      }
-
-      if (!variants.length) {
-        const maxVariantCount = Math.max(sizeIds.length, colorIds.length, 1);
-        for (let i = 0; i < maxVariantCount; i += 1) {
-          const sizeId = sizeIds[i] ?? sizeIds[0] ?? null;
-          const colorId = colorIds[i] ?? colorIds[0] ?? null;
-
-          if (!sizeId || !colorId) continue;
-
-          variants.push({
-            size_id: sizeId,
-            color_id: colorId,
-            stock: Math.max(0, Math.floor(Number(inputStock?.value) || 0)),
-            price_adjust: 0,
-            sku: inputCode?.value?.trim() || `SKU-${Date.now()}-${i}`,
-          });
-        }
       }
 
       const formData = new FormData();
       formData.append("name", inputName?.value.trim() || "");
-      formData.append("price", String(Number(inputPrice?.value) || 0));
-      formData.append(
-        "discount_price",
-        String(Number(inputDiscountPrice?.value) || 0),
-      );
+      formData.append("brand_name", inputBrand?.value.trim() || "");
+      formData.append("price", String(price));
+      formData.append("discount_price", String(discountPrice));
       formData.append("description", inputDescription?.value.trim() || "");
       formData.append("material", "");
       formData.append("warranty", "");
@@ -520,10 +635,6 @@ document.addEventListener("DOMContentLoaded", () => {
       formData.append("variants", JSON.stringify(variants));
       formData.append("category_ids", JSON.stringify(categoryIds));
 
-      if (brandId !== null && Number.isFinite(brandId)) {
-        formData.append("brand_id", String(brandId));
-      }
-
       if (editingProductId) {
         formData.append("id", String(editingProductId));
       }
@@ -533,7 +644,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       if (!variants.length) {
-        throw new Error("لطفاً حداقل یک سایز و یک رنگ برای محصول انتخاب کنید.");
+        throw new Error("لطفاً حداقل یک سایز و یک رنگ برای محصول وارد کنید.");
       }
 
       const response = await fetchWithAuth(endpoint, {
@@ -541,8 +652,16 @@ document.addEventListener("DOMContentLoaded", () => {
         body: formData,
       });
 
-      if (response && response.status === false) {
-        throw new Error(response.message || "خطا در ثبت اطلاعات محصول.");
+      if (
+        response?.status === false ||
+        response?.status === "error" ||
+        response?.success === false ||
+        response?.authRequired ||
+        response?.error
+      ) {
+        throw new Error(
+          response.message || response.error || "خطا در ثبت اطلاعات محصول.",
+        );
       }
 
       window.showAppNotice(

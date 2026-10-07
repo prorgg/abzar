@@ -1,4 +1,8 @@
-import { fetchWithAuth, resolveProductImagePath } from "./data.js";
+import {
+  fetchWithAuth,
+  formatPersianDate,
+  resolveProductImagePath,
+} from "./data.js";
 import { FAVORITES_STORAGE_KEY } from "./favorites.js";
 
 function escapeHtml(value) {
@@ -276,7 +280,7 @@ function isUnpaidOrder(order) {
 function getOrderItems(order, depth = 0) {
   if (!order || typeof order !== "object" || depth > 4) return [];
   for (const key of ["items", "order_items", "products"]) {
-    if (Array.isArray(order[key])) return order[key];
+    if (Array.isArray(order[key]) && order[key].length) return order[key];
     if (order[key] && typeof order[key] === "object") {
       const nestedItems = getOrderItems(order[key], depth + 1);
       if (nestedItems.length) return nestedItems;
@@ -289,6 +293,72 @@ function getOrderItems(order, depth = 0) {
   return [];
 }
 
+function getOrderItemQuantity(item) {
+  return Number(
+    item?.quantity ??
+      item?.qty ??
+      item?.count ??
+      item?.amount ??
+      item?.pivot?.quantity ??
+      item?.order_item?.quantity ??
+      1,
+  );
+}
+
+function getOrderItemsCacheKey() {
+  const user = getStoredUser();
+  const userId =
+    user?.id ?? user?.user_id ?? user?.customer_id ?? user?.customer?.id;
+  return userId == null ? null : `abzar_order_items_${userId}`;
+}
+
+function getCachedOrderItems(orderId) {
+  const cacheKey = getOrderItemsCacheKey();
+  if (!cacheKey) return [];
+
+  try {
+    const cache = JSON.parse(localStorage.getItem(cacheKey) || "{}");
+    return Array.isArray(cache[orderId]) ? cache[orderId] : [];
+  } catch (error) {
+    console.error("خواندن جزئیات ذخیره‌شده سفارش ناموفق بود:", error);
+    return [];
+  }
+}
+
+function cacheOrderItems(orderId, items) {
+  const cacheKey = getOrderItemsCacheKey();
+  if (!cacheKey || !items.length) return;
+
+  try {
+    const cache = JSON.parse(localStorage.getItem(cacheKey) || "{}");
+    cache[orderId] = items;
+    localStorage.setItem(cacheKey, JSON.stringify(cache));
+  } catch (error) {
+    console.error("ذخیره جزئیات سفارش برای فاکتور ناموفق بود:", error);
+  }
+}
+
+function removeCachedOrderItems(orderId) {
+  const cacheKey = getOrderItemsCacheKey();
+  if (!cacheKey) return;
+
+  try {
+    const cache = JSON.parse(localStorage.getItem(cacheKey) || "{}");
+    delete cache[orderId];
+    localStorage.setItem(cacheKey, JSON.stringify(cache));
+  } catch (error) {
+    console.error("حذف جزئیات ذخیره‌شده سفارش ناموفق بود:", error);
+  }
+}
+
+function getAvailableOrderItems(orderId, ...orders) {
+  for (const order of orders) {
+    const items = getOrderItems(order);
+    if (items.length) return items;
+  }
+  return getCachedOrderItems(orderId);
+}
+
 function getOrderVariantId(item) {
   return (
     item.variant_id ??
@@ -299,14 +369,64 @@ function getOrderVariantId(item) {
   );
 }
 
-function getCartItems(payload, depth = 0) {
-  if (Array.isArray(payload)) return payload;
-  if (!payload || typeof payload !== "object" || depth > 4) return [];
-  for (const key of ["items", "cart", "data", "result", "payload"]) {
-    const items = getCartItems(payload[key], depth + 1);
-    if (items.length) return items;
+function getInventoryQuantity(inventory) {
+  if (
+    inventory?.in_stock === false ||
+    inventory?.is_in_stock === false ||
+    inventory?.available === false
+  ) {
+    return 0;
   }
-  return [];
+
+  for (const key of [
+    "available_quantity",
+    "available_stock",
+    "stock_quantity",
+    "quantity",
+    "stock",
+  ]) {
+    const value = inventory?.[key];
+    if (value === null || value === undefined || value === "") continue;
+    const quantity = Number(String(value).replace(/,/g, ""));
+    if (Number.isFinite(quantity) && quantity >= 0) return quantity;
+  }
+
+  return null;
+}
+
+function getProductForOrderItem(item, products) {
+  const variantId = getOrderVariantId(item);
+  const productId =
+    item.product_id ??
+    item.product?.id ??
+    item.variant?.product_id ??
+    item.variant?.product?.id;
+
+  for (const product of products) {
+    const matchingVariant = (Array.isArray(product.variants)
+      ? product.variants
+      : []
+    ).find(
+      (variant) =>
+        variantId != null &&
+        String(variant.id ?? variant.variant_id ?? "") === String(variantId),
+    );
+    if (matchingVariant) return { product, variant: matchingVariant };
+  }
+
+  const product = products.find(
+    (candidate) =>
+      productId != null &&
+      String(candidate.id ?? candidate.product_id ?? "") ===
+        String(productId),
+  );
+  return product ? { product, variant: null } : null;
+}
+
+function getCurrentStock(product, variant) {
+  const variantStock = getInventoryQuantity(variant);
+  if (variantStock !== null) return variantStock;
+  return getInventoryQuantity(product);
 }
 
 function getUserToken() {
@@ -881,7 +1001,7 @@ document.addEventListener("DOMContentLoaded", () => {
           const orderId = getOrderId(order);
           const orderCode =
             order.order_number || order.order_code || order.code || order.id;
-          const orderDate = order.created_at || order.date || "-";
+          const orderDate = formatPersianDate(order.created_at || order.date);
           const orderTotal = Number(
             order.final_amount ??
               order.total_amount ??
@@ -928,7 +1048,7 @@ document.addEventListener("DOMContentLoaded", () => {
                   مشاهده فاکتور
                 </button>
                 ${isUnpaidOrder(order) ? `<button data-order-id="${escapeHtml(orderId)}" class="restore-order-btn inline-flex items-center gap-1.5 rounded-xl border border-purple1/40 px-4 py-2 text-xs font-bold text-purple1 transition-colors hover:bg-yasi"><svg class="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h11a6 6 0 1 1-5.2 9M3 10l4-4m-4 4 4 4"/></svg>بازگردانی به سبد</button>` : ""}
-                <button data-order-id="${escapeHtml(orderId)}" class="delete-order-btn inline-flex items-center gap-1.5 rounded-xl border border-gray-primary/50 px-4 py-2 text-xs font-bold text-gray-main transition-colors hover:bg-yasi"><svg class="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 7h12M8 7v12h8V7M10 4h4"/></svg>لغو سفارش</button>
+                ${status !== "canceled" && status !== "cancelled" ? `<button data-order-id="${escapeHtml(orderId)}" class="delete-order-btn inline-flex items-center gap-1.5 rounded-xl border border-gray-primary/50 px-4 py-2 text-xs font-bold text-gray-main transition-colors hover:bg-yasi"><svg class="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 7h12M8 7v12h8V7M10 4h4"/></svg>لغو سفارش</button>` : ""}
               </div>
             </article>
           `;
@@ -936,11 +1056,55 @@ document.addEventListener("DOMContentLoaded", () => {
         .join("");
 
       ordersListEl.querySelectorAll(".view-invoice-btn").forEach((button) => {
-        button.addEventListener("click", () => {
+        button.addEventListener("click", async () => {
           const order = orders.find(
             (item) => String(getOrderId(item)) === String(button.dataset.orderId),
           );
-          if (order) openInvoiceModal(order);
+          if (!order) return;
+
+          const orderId = getOrderId(order);
+          if (orderId === null || orderId === "") {
+            window.showAppNotice("شناسه سفارش برای دریافت جزئیات پیدا نشد.");
+            return;
+          }
+
+          button.disabled = true;
+          try {
+            const detailResponse = await fetchWithAuth(
+              `/order?id=${encodeURIComponent(orderId)}`,
+              { method: "GET" },
+            );
+            if (
+              detailResponse?.status === false ||
+              detailResponse?.authRequired ||
+              detailResponse?.success === false ||
+              detailResponse?.ok === false
+            ) {
+              throw new Error(
+                detailResponse.message || "دریافت جزئیات سفارش ناموفق بود.",
+              );
+            }
+
+            const items = getAvailableOrderItems(orderId, detailResponse, order);
+            if (!items.length) {
+              throw new Error("جزئیات کالاهای این سفارش در دسترس نیست.");
+            }
+            cacheOrderItems(orderId, items);
+            order.items = items;
+            openInvoiceModal(order, items);
+          } catch (error) {
+            console.error("دریافت جزئیات سفارش برای فاکتور ناموفق بود:", error);
+            const cachedItems = getAvailableOrderItems(orderId, order);
+            if (cachedItems.length) {
+              openInvoiceModal(order, cachedItems);
+            } else {
+              window.showAppNotice(
+                error.message || "دریافت جزئیات فاکتور ناموفق بود.",
+              );
+            }
+          } finally {
+            button.disabled = false;
+          }
         });
       });
 
@@ -949,7 +1113,7 @@ document.addEventListener("DOMContentLoaded", () => {
           const order = orders.find(
             (item) => String(getOrderId(item)) === String(button.dataset.orderId),
           );
-          if (!order) return;
+          if (!order || getOrderStatus(order) === "canceled") return;
           const orderId = getOrderId(order);
           if (orderId === null || orderId === "") {
             window.showAppNotice("شناسه سفارش برای حذف پیدا نشد.");
@@ -963,6 +1127,28 @@ document.addEventListener("DOMContentLoaded", () => {
 
           button.disabled = true;
           try {
+            const detailResponse = await fetchWithAuth(
+              `/order?id=${encodeURIComponent(orderId)}`,
+              { method: "GET" },
+            );
+            if (
+              detailResponse?.status === false ||
+              detailResponse?.authRequired ||
+              detailResponse?.success === false ||
+              detailResponse?.ok === false
+            ) {
+              throw new Error(
+                detailResponse.message || "دریافت اقلام سفارش ناموفق بود.",
+              );
+            }
+            const items = getAvailableOrderItems(orderId, detailResponse, order);
+            if (!items.length) {
+              throw new Error(
+                "جزئیات کالاهای این سفارش پیدا نشد؛ برای جلوگیری از حذف جزئیات، سفارش لغو نشد.",
+              );
+            }
+            cacheOrderItems(orderId, items);
+
             const response = await fetchWithAuth("/order", {
               method: "PUT",
               body: { id: orderId, cancel: true },
@@ -989,45 +1175,68 @@ document.addEventListener("DOMContentLoaded", () => {
       ordersListEl.querySelectorAll(".restore-order-btn").forEach((button) => {
         button.addEventListener("click", async () => {
           const order = orders.find(
-            (item) => String(item.id) === String(button.dataset.orderId),
+            (item) =>
+              String(getOrderId(item)) === String(button.dataset.orderId),
           );
           if (!order || !isUnpaidOrder(order)) return;
 
           button.disabled = true;
-          let cartHasRestoredItems = false;
+          const unavailableNames = [];
+          const failedNames = [];
           try {
+            const orderId = getOrderId(order);
+            if (orderId === null || orderId === "") {
+              throw new Error("شناسه سفارش برای بازگردانی پیدا نشد.");
+            }
             const detailResponse = await fetchWithAuth(
-              `/order?id=${encodeURIComponent(order.id)}`,
+              `/order?id=${encodeURIComponent(orderId)}`,
               { method: "GET" },
             );
             if (
               detailResponse?.status === false ||
-              detailResponse?.authRequired
+              detailResponse?.authRequired ||
+              detailResponse?.success === false ||
+              detailResponse?.ok === false
             ) {
               throw new Error(
                 detailResponse.message || "دریافت اقلام سفارش ناموفق بود.",
               );
             }
 
-            const detailPayload =
-              detailResponse?.data ?? detailResponse?.result ?? detailResponse;
-            const detailedOrder = Array.isArray(detailPayload)
-              ? detailPayload.find(
-                  (item) => String(item.id) === String(order.id),
-                )
-              : (detailPayload?.order ?? detailPayload);
-            const items = getOrderItems(detailedOrder || order);
+            const items = getAvailableOrderItems(
+              orderId,
+              detailResponse,
+              order,
+            );
             if (!items.length) {
               throw new Error("اقلام این سفارش برای بازگردانی در دسترس نیست.");
             }
 
+            const productsResponse = await fetchWithAuth("/products", {
+              method: "GET",
+            });
+            if (
+              productsResponse?.status === false ||
+              productsResponse?.status === "error" ||
+              productsResponse?.authRequired ||
+              productsResponse?.success === false ||
+              productsResponse?.ok === false
+            ) {
+              throw new Error(
+                productsResponse.message || "بررسی موجودی کالاها ناموفق بود.",
+              );
+            }
+            const products = normalizeProductsPayload(productsResponse);
+            if (!products.length) {
+              throw new Error(
+                "اطلاعات موجودی کالاها دریافت نشد؛ سفارش به سبد منتقل نشد.",
+              );
+            }
+
             const requestedByVariant = new Map();
-            const failedItems = [];
             for (const item of items) {
               const variantId = Number(getOrderVariantId(item));
-              const quantity = Number(
-                item.quantity ?? item.qty ?? item.count ?? 1,
-              );
+              const quantity = getOrderItemQuantity(item);
               const name =
                 item.product?.name ||
                 item.product_name ||
@@ -1040,81 +1249,82 @@ document.addEventListener("DOMContentLoaded", () => {
                 !Number.isFinite(quantity) ||
                 quantity < 1
               ) {
-                failedItems.push(name);
+                unavailableNames.push(name);
                 continue;
               }
 
               const current = requestedByVariant.get(variantId) || {
                 quantity: 0,
                 name,
+                item,
               };
               current.quantity += quantity;
               requestedByVariant.set(variantId, current);
             }
 
-            const cartResponse = await fetchWithAuth("/cart", {
-              method: "GET",
-            });
-            if (cartResponse?.status === false || cartResponse?.authRequired) {
-              throw new Error(
-                cartResponse.message || "دریافت سبد خرید ناموفق بود.",
-              );
-            }
-            const currentByVariant = new Map();
-            getCartItems(cartResponse).forEach((item) => {
-              const variantId = Number(getOrderVariantId(item));
-              if (Number.isInteger(variantId) && variantId > 0) {
-                currentByVariant.set(
-                  variantId,
-                  (currentByVariant.get(variantId) || 0) +
-                    Number(item.quantity ?? item.qty ?? item.count ?? 1),
-                );
-              }
-            });
-
+            const availableItems = [];
             for (const [variantId, requested] of requestedByVariant) {
-              const currentQuantity = currentByVariant.get(variantId) || 0;
-              if (currentQuantity >= requested.quantity) {
-                cartHasRestoredItems = true;
+              const matchedProduct = getProductForOrderItem(
+                requested.item,
+                products,
+              );
+              const stock = matchedProduct
+                ? getCurrentStock(
+                    matchedProduct.product,
+                    matchedProduct.variant,
+                  )
+                : null;
+              if (stock === null || stock < requested.quantity) {
+                unavailableNames.push(
+                  stock === null
+                    ? requested.name
+                    : `${requested.name} (موجودی: ${stock}، تعداد درخواستی: ${requested.quantity})`,
+                );
                 continue;
               }
+
+              availableItems.push(requested.name);
               const response = await fetchWithAuth("/cart", {
                 method: "POST",
                 body: {
                   variant_id: variantId,
-                  quantity: requested.quantity - currentQuantity,
+                  quantity: requested.quantity,
                 },
               });
               if (
                 response?.status === false ||
+                response?.status === "error" ||
                 response?.authRequired ||
                 response?.success === false ||
                 response?.ok === false
               ) {
-                failedItems.push(requested.name);
-                continue;
+                failedNames.push(requested.name);
               }
-              cartHasRestoredItems = true;
             }
 
-            if (failedItems.length) {
+            if (failedNames.length) {
+              const failureNotice =
+                `افزودن بعضی کالاهای موجود به سبد ناموفق بود؛ سفارش قبلی حذف نشد تا دوباره تلاش کنید.\n${failedNames.join("\n")}` +
+                (unavailableNames.length
+                  ? `\n\nبرای کالاهای زیر عذرخواهی می‌کنیم؛ موجودی کافی ندارند:\n${unavailableNames.join("\n")}`
+                  : "");
+              window.showAppNotice(failureNotice, "بازگردانی ناقص");
+              button.disabled = false;
+              return;
+            }
+
+            if (!availableItems.length) {
               window.showAppNotice(
-                `${failedItems.length} قلم به سبد اضافه نشد؛ ممکن است موجودی کافی یا شناسه تنوع معتبر نداشته باشد. سفارش قبلی حذف نشده است.`,
+                `متأسفیم، موجودی کافی برای اقلام این سفارش وجود ندارد:\n${unavailableNames.join("\n")}\nسفارش شما حذف نشده است و می‌توانید بعداً دوباره تلاش کنید.`,
+                "موجودی کالا",
               );
-              if (cartHasRestoredItems) {
-                window.location.href = "../cart/index.html";
-              } else {
-                button.disabled = false;
-              }
+              button.disabled = false;
               return;
             }
 
             const deleteResponse = await fetchWithAuth("/order", {
-              method: "PUT",
-              body: {
-                id: getOrderId(order),
-                cancel: true,
-              },
+              method: "DELETE",
+              body: { id: orderId },
             });
             if (
               deleteResponse?.status === false ||
@@ -1123,19 +1333,25 @@ document.addEventListener("DOMContentLoaded", () => {
               deleteResponse?.ok === false
             ) {
               throw new Error(
-                "کالاها به سبد اضافه شدند، اما لغو سفارش قبلی ناموفق بود.",
+                "کالاها به سبد اضافه شدند، اما حذف سفارش قبلی ناموفق بود.",
               );
             }
 
-            window.showAppNotice("سفارش به سبد خرید بازگردانده شد.");
+            removeCachedOrderItems(orderId);
+            const restoreNotice = unavailableNames.length
+              ? `اقلام دارای موجودی به سبد خرید اضافه شدند.\n\nمتأسفیم، موجودی کافی برای این اقلام وجود نداشت:\n${unavailableNames.join("\n")}`
+              : "اقلام سفارش به سبد خرید اضافه شدند. تا زمان زدن دکمه ثبت سفارش در مرحله آخر، سفارش جدیدی ثبت نمی‌شود.";
+            sessionStorage.setItem(
+              "abzar_cart_restore_notice",
+              JSON.stringify({
+                title: "بازگردانی سفارش",
+                message: restoreNotice,
+              }),
+            );
             window.location.href = "../cart/index.html";
           } catch (error) {
             window.showAppNotice(error.message || "بازگردانی سفارش انجام نشد.");
-            if (cartHasRestoredItems) {
-              window.location.href = "../cart/index.html";
-            } else {
-              button.disabled = false;
-            }
+            button.disabled = false;
           }
         });
       });
@@ -1145,36 +1361,47 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  function openInvoiceModal(order) {
+  function openInvoiceModal(order, items = getOrderItems(order)) {
     const modal = document.getElementById("invoiceModal");
     if (!modal) return;
 
     document.getElementById("invoiceOrderCode").textContent =
       `کد سفارش: ${order.order_number || order.order_code || order.code || `#${order.id}`}`;
     document.getElementById("invoiceOrderDate").textContent =
-      `تاریخ: ${order.created_at || order.date || "-"}`;
+      `تاریخ: ${formatPersianDate(order.created_at || order.date)}`;
     document.getElementById("invoiceTotalPrice").textContent =
       `${Number(order.final_amount ?? order.total_amount ?? order.total ?? 0).toLocaleString("en-US")} تومان`;
 
     const tbody = document.getElementById("invoiceItems");
-    const items = Array.isArray(order.items)
-      ? order.items
-      : Array.isArray(order.order_items)
-        ? order.order_items
-        : [];
     if (tbody)
       tbody.innerHTML = items.length
         ? items
-            .map(
-              (item) => `
+            .map((item) => {
+              const quantity = getOrderItemQuantity(item);
+              const unitPrice = Number(
+                item.unit_price ??
+                  item.price ??
+                  item.unitPrice ??
+                  item.product?.price ??
+                  0,
+              );
+              const productName =
+                item.product?.name ||
+                item.product?.title ||
+                item.product_name ||
+                item.name ||
+                item.title ||
+                "محصول";
+
+              return `
       <tr>
-        <td class="p-2">${item.product?.name || item.product_name || item.name || item.title || "محصول"}</td>
-        <td class="p-2">${Number(item.quantity ?? item.qty ?? item.count ?? 1).toLocaleString("en-US")}</td>
-        <td class="p-2">${Number(item.unit_price ?? item.price ?? item.unitPrice ?? 0).toLocaleString("en-US")} تومان</td>
-        <td class="p-2">${Number((item.quantity ?? item.qty ?? item.count ?? 1) * (item.unit_price ?? item.price ?? item.unitPrice ?? 0)).toLocaleString("en-US")} تومان</td>
+        <td class="p-2">${escapeHtml(productName)}</td>
+        <td class="p-2">${quantity.toLocaleString("en-US")}</td>
+        <td class="p-2">${unitPrice.toLocaleString("en-US")} تومان</td>
+        <td class="p-2">${(quantity * unitPrice).toLocaleString("en-US")} تومان</td>
       </tr>
-    `,
-            )
+    `;
+            })
             .join("")
         : `<tr><td colspan="4" class="p-4 text-center text-gray-400">جزئیات کالاهای سفارش در دسترس نیست.</td></tr>`;
 

@@ -22,11 +22,29 @@ function parseCurrencyToNumber(value) {
   return 0;
 }
 
-function sumAccountingItems(items) {
-  return items.reduce(
-    (total, item) => total + parseCurrencyToNumber(item?.amount ?? item?.value ?? item?.total),
-    0,
+function formatCurrency(value) {
+  return parseCurrencyToNumber(value).toLocaleString("en-US");
+}
+
+function getAccountingItemAmount(item) {
+  return (
+    item?.amount ??
+    item?.income_amount ??
+    item?.expense_amount ??
+    item?.value ??
+    item?.total ??
+    item?.price ??
+    item?.income ??
+    item?.expense ??
+    item?.cost ??
+    0
   );
+}
+
+function sumAccountingItems(items) {
+  return items.reduce((total, item) => {
+    return total + parseCurrencyToNumber(getAccountingItemAmount(item));
+  }, 0);
 }
 
 function normalizeTransactionDate(value) {
@@ -36,13 +54,13 @@ function normalizeTransactionDate(value) {
 }
 
 function normalizeAccountingItem(item, type) {
-  const amount = parseCurrencyToNumber(item?.amount ?? item?.value ?? 0);
+  const amount = parseCurrencyToNumber(getAccountingItemAmount(item));
   const date = item?.transaction_date || item?.date || item?.created_at || "-";
   return {
     ...item,
     type: item?.type || type,
     title: item?.title || item?.description || "-",
-    amount: amount.toLocaleString("en-US") + " تومان",
+    amount: `${formatCurrency(amount)} تومان`,
     date,
     transaction_date: item?.transaction_date || date,
   };
@@ -390,54 +408,28 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // 1. دریافت آمار کلی و لیست‌ها از API
   await fetchAccountingData();
-  await fetchAccountingSummary();
 
-  async function fetchAccountingSummary() {
-    try {
-      const res = ensureAccountingApiSuccess(
-        await fetchWithAuth("/accounting?dashboard=true", { method: "GET" }),
-      );
-      const data = res?.data || res || {};
+  function fetchAccountingSummary() {
+    const totalIncomeEl = document.getElementById("total-income");
+    const totalExpensesEl = document.getElementById("total-expenses");
+    const netProfitEl = document.getElementById("net-profit");
+    const incomeDetailsTotalEl = document.getElementById("income-details-total");
+    const expenseDetailsTotalEl = document.getElementById("expense-details-total");
 
-      const totalIncomeEl = document.getElementById("total-income");
-      const totalExpensesEl = document.getElementById("total-expenses");
-      const netProfitEl = document.getElementById("net-profit");
+    const totalIncome = sumAccountingItems(incomeData);
+    const totalExpenses = sumAccountingItems(expenseData);
+    const netProfit = totalIncome - totalExpenses;
 
-      const apiIncome = parseCurrencyToNumber(
-        data.total_income ??
-          data.income_total ??
-          data.totalIncome ??
-          data.incomeTotal ??
-          data.total_revenue ??
-          data.revenue_total ??
-          data.revenue ??
-          data.income,
-      );
-      const apiExpenses = parseCurrencyToNumber(
-        data.total_expenses ??
-          data.expense_total ??
-          data.totalExpenses ??
-          data.expenseTotal ??
-          data.expenses ??
-          data.expense ??
-          data.total_cost ??
-          data.cost,
-      );
-      const totalIncome = incomeData.length ? sumAccountingItems(incomeData) : apiIncome;
-      const totalExpenses = expenseData.length ? sumAccountingItems(expenseData) : apiExpenses;
-      const netProfit = totalIncome - totalExpenses;
-
-      if (totalIncomeEl) totalIncomeEl.innerText = totalIncome.toLocaleString("en-US");
-      if (totalExpensesEl) totalExpensesEl.innerText = totalExpenses.toLocaleString("en-US");
-      if (netProfitEl) netProfitEl.innerText = netProfit.toLocaleString("en-US");
-    } catch (error) {
-      ["total-income", "total-expenses", "net-profit"].forEach((id) => {
-        const element = document.getElementById(id);
-        if (element) element.innerText = "0";
-      });
-      console.error("خطا در دریافت آمار حسابداری:", error);
-    }
+    if (totalIncomeEl) totalIncomeEl.innerText = formatCurrency(totalIncome);
+    if (totalExpensesEl) totalExpensesEl.innerText = formatCurrency(totalExpenses);
+    if (netProfitEl) netProfitEl.innerText = formatCurrency(netProfit);
+    if (incomeDetailsTotalEl)
+      incomeDetailsTotalEl.innerText = formatCurrency(totalIncome);
+    if (expenseDetailsTotalEl)
+      expenseDetailsTotalEl.innerText = formatCurrency(totalExpenses);
   }
+
+  fetchAccountingSummary();
 
   async function fetchAccountingData() {
     try {
@@ -562,10 +554,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       ? "text-emerald-600 bg-emerald-50"
       : "text-rose-500 bg-rose-50";
 
-    const displayAmount =
-      typeof item.amount === "number"
-        ? item.amount.toLocaleString("en-US") + " تومان"
-        : item.amount;
+    const displayAmount = `${formatCurrency(item.amount)} تومان`;
 
     return `<div class="grid grid-cols-12 gap-2 text-center items-center py-3.5 px-4 border-b border-gray-100 last:border-0 hover:bg-gray-50/50 transition-colors whitespace-nowrap text-xs sm:text-sm">
       <div class="col-span-2">

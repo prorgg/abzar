@@ -1226,11 +1226,6 @@ if (document.documentElement.dataset.cartClickHandlerAttached !== "true") {
         return;
       }
 
-      if (!token) {
-        window.showLoginNoticeAndModal?.();
-        return;
-      }
-
       const variantId = addBtn.dataset.variantId;
       if (!variantId) {
         console.error("محصول variant قابل خرید ندارد.");
@@ -1241,54 +1236,11 @@ if (document.documentElement.dataset.cartClickHandlerAttached !== "true") {
       try {
         addBtn.disabled = true;
         await addToCart(variantId, 1);
-        const profileResponse = await fetchWithAuth("/profile", {
-          method: "GET",
-        });
-        if (
-          profileResponse?.status === false ||
-          profileResponse?.authRequired
-        ) {
-          throw new Error(
-            profileResponse.message || "برای ثبت سفارش دوباره وارد حساب شوید.",
-          );
-        }
-
-        const profile =
-          profileResponse?.data ?? profileResponse?.user ?? profileResponse;
-        const shippingAddress = String(
-          profile?.full_address || profile?.address || "",
-        ).trim();
-        if (!shippingAddress) {
-          await fetchAndRenderCart();
-          throw new Error(
-            "محصول به سبد اضافه شد؛ برای ثبت سفارش ابتدا آدرس را در حساب کاربری ثبت کنید.",
-          );
-        }
-
-        const orderResponse = await fetchWithAuth("/order", {
-          method: "POST",
-          body: {
-            address: shippingAddress,
-            shipping_cost: 0,
-          },
-        });
-        if (orderResponse?.status === false || orderResponse?.authRequired) {
-          throw new Error(orderResponse.message || "ثبت سفارش ناموفق بود.");
-        }
-
-        const order = orderResponse?.data ?? orderResponse;
-        const orderNumber = order?.order_number || order?.order_id || order?.id;
-        if (!orderNumber) {
-          throw new Error("شماره سفارش از پاسخ سرور دریافت نشد.");
-        }
-
         await fetchAndRenderCart();
-        window.showAppNotice(
-          `سفارش ${orderNumber} ثبت شد و در وضعیت انتظار پرداخت قرار گرفت.`,
-        );
+        window.showAppNotice("محصول به سبد خرید اضافه شد.");
       } catch (err) {
         console.error("خطا در افزودن به سبد خرید:", err);
-        window.showAppNotice(err.message || "ثبت سفارش انجام نشد.");
+        window.showAppNotice(err.message || "افزودن به سبد خرید انجام نشد.");
       } finally {
         addBtn.disabled = false;
       }
@@ -1320,6 +1272,7 @@ if (document.documentElement.dataset.cartClickHandlerAttached !== "true") {
         await fetchAndRenderCart();
       } catch (err) {
         console.error("خطا در تغییر تعداد:", err);
+        window.showAppNotice(err.message || "تغییر تعداد محصول انجام نشد.");
       } finally {
         actionButtons.forEach((btn) => (btn.disabled = false));
       }
@@ -1363,6 +1316,25 @@ if (document.documentElement.dataset.cartClickHandlerAttached !== "true") {
   });
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-  fetchAndRenderCart();
-});
+async function initializeCartPage() {
+  await fetchAndRenderCart();
+
+  const notice = sessionStorage.getItem("abzar_cart_restore_notice");
+  if (!notice) return;
+
+  sessionStorage.removeItem("abzar_cart_restore_notice");
+  try {
+    const { title, message } = JSON.parse(notice);
+    if (message) window.showAppNotice(message, title || "بازگردانی سفارش");
+  } catch (error) {
+    console.error("خواندن پیام بازگردانی سفارش ناموفق بود:", error);
+  }
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initializeCartPage, {
+    once: true,
+  });
+} else {
+  initializeCartPage();
+}

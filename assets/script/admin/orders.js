@@ -1,4 +1,4 @@
-import { fetchWithAuth } from "../data.js";
+import { fetchWithAuth, formatPersianDate } from "../data.js";
 
 document.addEventListener("DOMContentLoaded", () => {
   const pageTitle = document.getElementById("page-title");
@@ -6,6 +6,14 @@ document.addEventListener("DOMContentLoaded", () => {
   const tableBody = document.getElementById("orders-table-body");
   const searchInput = document.getElementById("order-search-input");
   const statusFilter = document.getElementById("order-status-filter");
+  const statusFilterIcon = document.getElementById("order-status-filter-icon");
+  const dateDayFilter = document.getElementById("order-date-day");
+  const dateMonthFilter = document.getElementById("order-date-month");
+  const dateYearFilter = document.getElementById("order-date-year");
+  const dateFilterHint = document.getElementById("order-date-filter-hint");
+  const clearDateFilterButton = document.getElementById(
+    "order-date-filter-clear",
+  );
 
   let ordersData = [];
 
@@ -21,6 +29,143 @@ document.addEventListener("DOMContentLoaded", () => {
     failed: { text: "ناموفق", color: "text-red-500" },
     unpaid: { text: "پرداخت نشده", color: "text-amber-500" },
   };
+
+  const persianDateFormatter = new Intl.DateTimeFormat(
+    "fa-IR-u-ca-persian-nu-latn",
+    {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    },
+  );
+
+  const persianNumberFormatter = new Intl.NumberFormat("fa-IR");
+  const jalaliMonths = [
+    "فروردین",
+    "اردیبهشت",
+    "خرداد",
+    "تیر",
+    "مرداد",
+    "شهریور",
+    "مهر",
+    "آبان",
+    "آذر",
+    "دی",
+    "بهمن",
+    "اسفند",
+  ];
+
+  function getJalaliDateParts(date) {
+    return Object.fromEntries(
+      persianDateFormatter
+        .formatToParts(date)
+        .filter((part) => ["year", "month", "day"].includes(part.type))
+        .map((part) => [part.type, Number(part.value)]),
+    );
+  }
+
+  function populateDateFilterOptions() {
+    if (!dateYearFilter || !dateMonthFilter || !dateDayFilter) return;
+
+    dateMonthFilter.replaceChildren(new Option("ماه", ""));
+    jalaliMonths.forEach((month, index) => {
+      dateMonthFilter.add(
+        new Option(month, String(index + 1).padStart(2, "0")),
+      );
+    });
+
+    updateDateFilterDays();
+  }
+
+  function updateDateFilterDays() {
+    if (!dateDayFilter) return;
+
+    const selectedDay = Number(dateDayFilter.value);
+    const yearSuffix = dateYearFilter?.value || "";
+    const year = /^\d{3}$/.test(yearSuffix) ? Number(`1${yearSuffix}`) : 0;
+    const month = Number(dateMonthFilter?.value);
+    let daysInMonth = 31;
+
+    if (year && month) {
+      const start = new Date(year + 621, 2, 1);
+      const end = new Date(year + 622, 3, 1);
+      daysInMonth = 0;
+      for (const date = new Date(start); date < end; date.setDate(date.getDate() + 1)) {
+        const parts = getJalaliDateParts(date);
+        if (parts.year === year && parts.month === month) {
+          daysInMonth = Math.max(daysInMonth, parts.day);
+        }
+      }
+    } else if (month >= 7 && month <= 11) {
+      daysInMonth = 30;
+    } else if (month === 12) {
+      daysInMonth = 30;
+    }
+
+    dateDayFilter.replaceChildren(new Option("روز", ""));
+    for (let day = 1; day <= daysInMonth; day += 1) {
+      dateDayFilter.add(
+        new Option(persianNumberFormatter.format(day), String(day).padStart(2, "0")),
+      );
+    }
+    if (selectedDay && selectedDay <= daysInMonth) {
+      dateDayFilter.value = String(selectedDay).padStart(2, "0");
+    }
+  }
+
+  function getSelectedJalaliDate() {
+    const yearSuffix = dateYearFilter?.value || "";
+    const year = /^\d{3}$/.test(yearSuffix) ? `1${yearSuffix}` : "";
+    const month = dateMonthFilter?.value || "";
+    const day = dateDayFilter?.value || "";
+    return year && month && day ? `${year}/${month}/${day}` : "";
+  }
+
+  function hasPartialDateSelection() {
+    return Boolean(
+      dateYearFilter?.value || dateMonthFilter?.value || dateDayFilter?.value,
+    );
+  }
+
+  function normalizeYearInput() {
+    if (!dateYearFilter) return;
+    const digits = dateYearFilter.value
+      .replace(/[۰-۹]/g, (digit) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)))
+      .replace(/[٠-٩]/g, (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)))
+      .replace(/\D/g, "");
+    dateYearFilter.value =
+      digits.length === 4 && digits.startsWith("1")
+        ? digits.slice(1)
+        : digits.slice(0, 3);
+  }
+
+  function getOrderJalaliDate(order) {
+    const rawDate =
+      order.created_at ||
+      order.date ||
+      order.order_date ||
+      order.createdAt ||
+      "";
+    const match = String(rawDate).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!match) return "";
+
+    const [, year, month, day] = match;
+    const parsedDate = new Date(
+      Number(year),
+      Number(month) - 1,
+      Number(day),
+    );
+    if (
+      parsedDate.getFullYear() !== Number(year) ||
+      parsedDate.getMonth() !== Number(month) - 1 ||
+      parsedDate.getDate() !== Number(day)
+    ) {
+      return "";
+    }
+
+    const parts = getJalaliDateParts(parsedDate);
+    return `${parts.year}/${String(parts.month).padStart(2, "0")}/${String(parts.day).padStart(2, "0")}`;
+  }
 
   function normalizeOrdersPayload(payload) {
     if (Array.isArray(payload)) return payload;
@@ -66,6 +211,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     try {
       ordersData = await fetchAllOrders();
+      populateDateFilterOptions();
       renderOrders(ordersData);
     } catch (error) {
       console.error("خطا در دریافت سفارشات:", error);
@@ -116,7 +262,7 @@ document.addEventListener("DOMContentLoaded", () => {
           0;
         const totalAmount = Number(rawAmount).toLocaleString("en-US");
 
-        const orderDate = order.created_at || order.date || "-";
+        const orderDate = formatPersianDate(order.created_at || order.date);
 
         const rawStatus = order.payment_status || order.status || "processing";
         const statusInfo = statusMap[rawStatus] || {
@@ -212,7 +358,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (addressEl)
         addressEl.textContent = order.shipping_address || order.address || "-";
-      if (dateEl) dateEl.textContent = order.created_at || order.date || "-";
+      if (dateEl)
+        dateEl.textContent = formatPersianDate(order.created_at || order.date);
 
       const itemsBody = document.getElementById("detail-items-body");
       const items = order.items || order.order_items || [];
@@ -323,6 +470,22 @@ document.addEventListener("DOMContentLoaded", () => {
   function applyFilters() {
     const query = searchInput?.value.trim().toLowerCase() || "";
     const selectedStatus = statusFilter?.value || "all";
+    const selectedDate = getSelectedJalaliDate();
+    const hasDateSelection = hasPartialDateSelection();
+    if (dateFilterHint) {
+      dateFilterHint.textContent = hasDateSelection && !selectedDate
+        ? "برای فیلتر، روز و ماه و سال را کامل انتخاب کنید"
+        : "روز، ماه و سال را انتخاب کنید";
+      dateFilterHint.classList.toggle(
+        "text-amber-600",
+        hasDateSelection && !selectedDate,
+      );
+      dateFilterHint.classList.toggle(
+        "text-gray-main",
+        !hasDateSelection || Boolean(selectedDate),
+      );
+    }
+    clearDateFilterButton?.classList.toggle("hidden", !hasDateSelection);
 
     const filtered = ordersData.filter((order) => {
       const code = (
@@ -344,15 +507,58 @@ document.addEventListener("DOMContentLoaded", () => {
         code.includes(query) || name.includes(query) || phone.includes(query);
       const matchesStatus =
         selectedStatus === "all" || order.status === selectedStatus;
+      const matchesDate =
+        !hasDateSelection ||
+        (Boolean(selectedDate) && getOrderJalaliDate(order) === selectedDate);
 
-      return matchesSearch && matchesStatus;
+      return matchesSearch && matchesStatus && matchesDate;
     });
 
     renderOrders(filtered);
   }
 
   if (searchInput) searchInput.addEventListener("input", applyFilters);
-  if (statusFilter) statusFilter.addEventListener("change", applyFilters);
+  if (statusFilter) {
+    statusFilter.addEventListener("change", () => {
+      statusFilterIcon?.classList.remove("rotate-180");
+      applyFilters();
+    });
+  }
+  statusFilter?.addEventListener("pointerdown", () => {
+    statusFilterIcon?.classList.toggle("rotate-180");
+  });
+  statusFilter?.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      statusFilterIcon?.classList.remove("rotate-180");
+    } else if (
+      event.key === "ArrowDown" &&
+      (event.altKey || event.repeat === false)
+    ) {
+      statusFilterIcon?.classList.add("rotate-180");
+    }
+  });
+  statusFilter?.addEventListener("blur", () => {
+    statusFilterIcon?.classList.remove("rotate-180");
+  });
+  dateYearFilter?.addEventListener("input", () => {
+    normalizeYearInput();
+    updateDateFilterDays();
+    applyFilters();
+  });
+  dateMonthFilter?.addEventListener("change", () => {
+    updateDateFilterDays();
+    applyFilters();
+  });
+  dateDayFilter?.addEventListener("change", applyFilters);
+  clearDateFilterButton?.addEventListener("click", () => {
+    if (dateYearFilter) dateYearFilter.value = "";
+    if (dateMonthFilter) dateMonthFilter.value = "";
+    if (dateDayFilter) dateDayFilter.value = "";
+    applyFilters();
+    dateYearFilter?.focus();
+  });
+
+  populateDateFilterOptions();
 
   // 7. بازگشت به لیست
   const backToOrdersBtn = document.getElementById("back-to-orders");

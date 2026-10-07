@@ -1,4 +1,4 @@
-import { fetchWithAuth } from "../data.js";
+import { fetchWithAuth, formatPersianDate } from "../data.js";
 
 document.addEventListener("DOMContentLoaded", () => {
   initDashboard();
@@ -345,7 +345,9 @@ async function fetchRecentOrders() {
           order.status_label ??
           order.status_text ??
           (isPaid ? "پرداخته شده" : "در انتظار پرداخت");
-        const dateText = order.created_at ?? order.date ?? order.createdAt ?? "---";
+        const dateText = formatPersianDate(
+          order.created_at ?? order.date ?? order.createdAt,
+        );
 
         return `
         <tr class="border-b border-purple1/20 hover:bg-gray-50 transition-colors">
